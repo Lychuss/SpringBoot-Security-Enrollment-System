@@ -1,5 +1,6 @@
 package com.example.demo.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,4 +14,8 @@ public interface UserRepository extends JpaRepository<User, Integer>{
 
 	@Query("SELECT s FROM User s WHERE s.email = ?1")
 	Optional<User> findUserByEmail (String email);
+	
+	List<User> findUserByRole (String role);
+	
+	Optional<User> findUserById(Long id);
 }

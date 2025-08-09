@@ -21,4 +21,12 @@ public class GlobalHandlerException {
 		response.put("error", e.getMessage());
 		return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
 	}
+	
+	@ExceptionHandler(CourseNotFoundException.class)
+	public ResponseEntity<Map<String, String>> handlingCourseException(CourseNotFoundException e){
+		log.error("Course not found");
+		Map<String, String> response = new HashMap<>();
+		response.put("error", e.getMessage());
+		return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+	}
 }

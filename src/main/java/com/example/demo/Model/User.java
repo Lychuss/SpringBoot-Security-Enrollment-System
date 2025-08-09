@@ -1,5 +1,6 @@
 package com.example.demo.Model;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -12,6 +13,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;

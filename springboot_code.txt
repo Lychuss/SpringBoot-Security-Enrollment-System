@@ -1,4 +1,4 @@
-==== C:\Projects\SpringBoot1\demo\pom.xml ==== 
+-------- C:\Projects\SpringBoot1\demo\pom.xml -------- 
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -120,7 +120,9 @@
 	</build>
 
 </project>
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\DemoApplication.java ==== 
+ 
+
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\DemoApplication.java -------- 
 package com.example.demo;
 
 import org.springframework.boot.SpringApplication;
@@ -134,7 +136,9 @@ public class DemoApplication {
 	}
 
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Configuration\ApplicationConfiguration.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Configuration\ApplicationConfiguration.java -------- 
 package com.example.demo.Configuration;
 
 import org.springframework.context.annotation.Bean;
@@ -183,7 +187,9 @@ public class ApplicationConfiguration {
 		return authProvider;
 	}
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Configuration\SecurityConfiguration.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Configuration\SecurityConfiguration.java -------- 
 package com.example.demo.Configuration;
 
 import org.springframework.context.annotation.Bean;
@@ -217,6 +223,7 @@ public class SecurityConfiguration {
 			.permitAll()
 			.requestMatchers("/api/admin/**").hasRole("ADMIN")
 			.requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
+			.requestMatchers("/api/student/**").hasRole("USER")
 			.anyRequest()
 			.authenticated()
 			.and()
@@ -229,30 +236,58 @@ public class SecurityConfiguration {
 		return http.build();
 	}
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Controllers\AdminController.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Controllers\AdminController.java -------- 
 package com.example.demo.Controllers;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.Model.Course;
 import com.example.demo.Service.ApplicationService;
 
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping(path= "/api/admin/inside")
+@RequestMapping(path= "/api/admin")
 public class AdminController {
 
-	private ApplicationService service;
+	private final ApplicationService service;
 	
 	@GetMapping
 	public String helloAdmin() {
 		return "Welcome to admin";
 	}
+	
+	@PostMapping("/enrollstudent")
+	public ResponseEntity<String> enrollStudent(@RequestParam Long student_id, @RequestParam Long course_id){
+		boolean x = service.enrollStudents(student_id, course_id);
+		if(x) {
+			return ResponseEntity.ok("You enrolled a student!");
+		}
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Cannot enrolled same student in same course");
+	}
+	
+	@PostMapping("/addcourse")
+	public ResponseEntity<String> addCourse(@RequestBody Course course){
+		boolean x = service.addCourse(course);
+		if(x) {
+			return ResponseEntity.ok("Added successfully");
+		} 
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body("The course is already added!");
+	}
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Controllers\HomeController.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Controllers\HomeController.java -------- 
 package com.example.demo.Controllers;
 
 import org.springframework.http.ResponseEntity;
@@ -290,30 +325,69 @@ public class HomeController {
 		return ResponseEntity.ok(service.registerAdmin(request));
 	}
 	
-	@PostMapping
+	@PostMapping("/login")
 	public ResponseEntity<String> login(@RequestBody LoginRequest request){
 		return ResponseEntity.ok(service.login(request));
 	}
 	
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Controllers\UserController.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Controllers\StudentController.java -------- 
 package com.example.demo.Controllers;
 
-import java.util.List;
-
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.demo.Model.AccountDTO;
+import com.example.demo.Model.Student;
 import com.example.demo.Service.ApplicationService;
 
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping(path= "/api/user/inside")
+@RequestMapping(path= "/api/student")
+public class StudentController {
+	
+	private final ApplicationService service;
+	
+	@PostMapping("/applystudent")
+	public ResponseEntity<String> applyStudent(@RequestBody Student student){
+		boolean x = service.applyStudent(student);
+		if(x) {
+			return ResponseEntity.ok("You are now a student!");
+		}
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Email is not an active user or you are an Admin!");
+	}
+}
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Controllers\UserController.java -------- 
+package com.example.demo.Controllers;
+
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.demo.Model.AccountDTO;
+import com.example.demo.Model.Student;
+import com.example.demo.Service.ApplicationService;
+
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping(path= "/api/user")
 public class UserController {
 
 	private final ApplicationService service;
@@ -327,8 +401,22 @@ public class UserController {
 	public ResponseEntity<List<AccountDTO>> allUsers(){
 		return ResponseEntity.ok(service.showAllUser());
 	}
+	
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\ErrorHandler\GlobalHandlerException.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\ErrorHandler\CourseNotFoundException.java -------- 
+package com.example.demo.ErrorHandler;
+
+public class CourseNotFoundException extends RuntimeException{
+
+	public CourseNotFoundException(String message) {
+		super(message);
+	}
+}
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\ErrorHandler\GlobalHandlerException.java -------- 
 package com.example.demo.ErrorHandler;
 
 import java.util.HashMap;
@@ -352,8 +440,18 @@ public class GlobalHandlerException {
 		response.put("error", e.getMessage());
 		return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
 	}
+	
+	@ExceptionHandler(CourseNotFoundException.class)
+	public ResponseEntity<Map<String, String>> handlingCourseException(CourseNotFoundException e){
+		log.error("Course not found");
+		Map<String, String> response = new HashMap<>();
+		response.put("error", e.getMessage());
+		return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+	}
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\ErrorHandler\UserNotFoundException.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\ErrorHandler\UserNotFoundException.java -------- 
 package com.example.demo.ErrorHandler;
 
 public class UserNotFoundException extends RuntimeException{
@@ -362,7 +460,9 @@ public class UserNotFoundException extends RuntimeException{
 		super(message);
 	}
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\AccountDTO.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\AccountDTO.java -------- 
 package com.example.demo.Model;
 
 import lombok.AllArgsConstructor;
@@ -380,7 +480,97 @@ public class AccountDTO {
 	private String lastname;
 	private String email;
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\LoginRequest.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\Course.java -------- 
+package com.example.demo.Model;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+@Table(name= "courses")
+public class Course {
+	
+	@Id
+	@GeneratedValue(strategy= GenerationType.IDENTITY)
+	private Long id;
+	
+	@NotNull(message= "Must have a value")
+	private String title;
+	
+	@Size(min=20, max=50)
+	private String description;
+	
+	@OneToMany(mappedBy= "course")
+	private List<Enrollment> enrollment = new ArrayList<>();
+}
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\Enrollment.java -------- 
+package com.example.demo.Model;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+@Table(
+	    name = "enrollees",
+	    uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "course_id"})
+	)
+public class Enrollment {
+
+	@Id
+	@GeneratedValue(strategy= GenerationType.IDENTITY)
+	private Long id;
+	
+	@ManyToOne
+	@JoinColumn(name= "student_id")
+	private Student student;
+	
+	@ManyToOne
+	@JoinColumn(name= "course_id")
+	private Course course;
+	
+	public Enrollment(Student student, Course course) {
+		this.student = student;
+		this.course = course;
+	}
+}
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\LoginRequest.java -------- 
 package com.example.demo.Model;
 
 import lombok.AllArgsConstructor;
@@ -397,7 +587,9 @@ public class LoginRequest {
 	private String email;
 	String password;
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\RegisterRequest.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\RegisterRequest.java -------- 
 package com.example.demo.Model;
 
 import lombok.AllArgsConstructor;
@@ -416,7 +608,9 @@ public class RegisterRequest {
 	private String email;
 	private String password;
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\Role.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\Role.java -------- 
 package com.example.demo.Model;
 
 public enum Role {
@@ -424,9 +618,58 @@ public enum Role {
 	USER,
 	ADMIN
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\User.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\Student.java -------- 
 package com.example.demo.Model;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+@Table(name= "students")
+public class Student {
+
+	@Id
+	@GeneratedValue(strategy= GenerationType.IDENTITY)
+	private Long id;
+	
+	@Email
+	private String email;
+	
+	@NotNull(message= "This should not be null")
+	private String gender;
+	
+	@NotNull
+	private String password;
+	
+    @OneToMany(mappedBy= "student")
+    List<Enrollment> enrollees = new ArrayList<>();
+	
+}
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\User.java -------- 
+package com.example.demo.Model;
+
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -439,6 +682,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;
@@ -479,9 +723,85 @@ public class User implements UserDetails{
 		return email;
 	}
     
-}==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Repository\UserRepository.java ==== 
+} 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Repository\CourseRepository.java -------- 
 package com.example.demo.Repository;
 
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import com.example.demo.Model.Course;
+
+@Repository
+public interface CourseRepository extends JpaRepository<Course, Long>{
+
+	@Query("SELECT s FROM Course s WHERE s.id = ?1")
+	Optional<Course> findCourseById (Long id);
+	
+	Optional<Course> findCourseByTitle(String title);
+}
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Repository\EnrollmentRepository.java -------- 
+package com.example.demo.Repository;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import com.example.demo.Model.Course;
+import com.example.demo.Model.Enrollment;
+import com.example.demo.Model.Student;
+
+@Repository
+public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>{
+	
+	@Query("SELECT s FROM Enrollment s WHERE s.student.id = ?1")
+		List<Enrollment> findEnrollmentById (Long id);
+	
+	@Query("SELECT s.student FROM Enrollment s WHERE s.course.id = ?1")
+		List<Student> findUserById (Long id); 
+	
+	@Query("SELECT s.course FROM Enrollment s WHERE s.student.id = ?1")
+		List<Course> findCourseById (Long id);
+	
+	@Query("SELECT s.student FROM Enrollment s WHERE s.course.id = ?1")
+		Student findStudentById(Long id);
+	
+	@Query("SELECT s.course FROM Enrollment s WHERE s.student.id = ?1")
+		Course findCoursesById(Long id);
+}
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Repository\StudentRepository.java -------- 
+package com.example.demo.Repository;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import com.example.demo.Model.Student;
+
+@Repository
+public interface StudentRepository extends JpaRepository<Student, Long>{
+
+	@Query("SELECT s FROM Student s WHERE s.id =?1")
+	Optional<Student> findStudentById (Long id);
+}
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Repository\UserRepository.java -------- 
+package com.example.demo.Repository;
+
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -495,8 +815,14 @@ public interface UserRepository extends JpaRepository<User, Integer>{
 
 	@Query("SELECT s FROM User s WHERE s.email = ?1")
 	Optional<User> findUserByEmail (String email);
+	
+	List<User> findUserByRole (String role);
+	
+	Optional<User> findUserById(Long id);
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Security\JwtAuthenticationFilter.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Security\JwtAuthenticationFilter.java -------- 
 package com.example.demo.Security;
 
 import java.io.IOException;
@@ -566,11 +892,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	}
 
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Service\ApplicationService.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Service\ApplicationService.java -------- 
 package com.example.demo.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -578,24 +907,37 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.ErrorHandler.CourseNotFoundException;
 import com.example.demo.ErrorHandler.UserNotFoundException;
 import com.example.demo.Model.AccountDTO;
+import com.example.demo.Model.Course;
+import com.example.demo.Model.Enrollment;
 import com.example.demo.Model.LoginRequest;
 import com.example.demo.Model.RegisterRequest;
 import com.example.demo.Model.Role;
+import com.example.demo.Model.Student;
 import com.example.demo.Model.User;
+import com.example.demo.Repository.CourseRepository;
+import com.example.demo.Repository.EnrollmentRepository;
+import com.example.demo.Repository.StudentRepository;
 import com.example.demo.Repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class ApplicationService {
 	
-	private final UserRepository repository;
+	
+	private final UserRepository userRepository;
+	private final CourseRepository courseRepository;
+	private final EnrollmentRepository enrollmentRepository;
 	private final JwtService service;
 	private final PasswordEncoder encoder;
 	private final AuthenticationManager authenticationManager;
+	private final StudentRepository studentRepository;
 
 	public String registerUser(RegisterRequest request) {
 		var user = User.builder()
@@ -605,9 +947,9 @@ public class ApplicationService {
 				.password(encoder.encode(request.getPassword()))
 				.role(Role.USER)
 				.build();
-		var checkUser = repository.findUserByEmail(request.getEmail());
+		var checkUser = userRepository.findUserByEmail(request.getEmail());
 		if(checkUser.isEmpty()) {
-			repository.save(user);
+			userRepository.save(user);
 			return "Sign up successfully";
 		} else {
 			return "Email is already sign up!";
@@ -622,9 +964,9 @@ public class ApplicationService {
 				.password(encoder.encode(request.getPassword()))
 				.role(Role.ADMIN)
 				.build();
-		var checkUser = repository.findUserByEmail(request.getEmail());
+		var checkUser = userRepository.findUserByEmail(request.getEmail());
 		if(checkUser.isEmpty()) {
-			repository.save(user);
+			userRepository.save(user);
 			return "Sign up successfully";
 		} else {
 			return "Email is already sign up!";
@@ -637,7 +979,7 @@ public class ApplicationService {
 		authenticationManager.authenticate(
 			new UsernamePasswordAuthenticationToken(
 				request.getEmail(), request.getPassword()));
-		var user = repository.findUserByEmail(request.getEmail()).orElseThrow(
+		var user = userRepository.findUserByEmail(request.getEmail()).orElseThrow(
 			() -> new UserNotFoundException("Incorrect email"));
 			var token = service.generateToken(user);
 			return token;
@@ -647,7 +989,7 @@ public class ApplicationService {
 	}
 	
 	public List<AccountDTO> showAllUser() {
-	  List<User> users = repository.findAll();
+	  List<User> users = userRepository.findAll();
 	  List<AccountDTO> dto = new ArrayList<>();
 	  for(User i : users) {
 		  AccountDTO user = new AccountDTO(i.getFirstname(), i.getLastname(), i.getEmail());
@@ -655,8 +997,51 @@ public class ApplicationService {
 	  }
 	  return dto;
 	}
+	
+	public boolean addCourse(Course course) {
+		Optional<Course> courses = courseRepository.findCourseByTitle(course.getTitle());
+		if(!courses.isPresent()) {
+			courseRepository.save(course);
+			return true;
+		} else {
+			return false;
+		}
+	}
+	
+	public boolean applyStudent(Student student) {
+		User user = userRepository.findUserByEmail(student.getEmail()).orElseThrow(
+			() -> new UserNotFoundException("Email is not an active user: " + student.getEmail()));
+	try {	
+		authenticationManager.authenticate(
+			new UsernamePasswordAuthenticationToken (student.getEmail(), student.getPassword()));
+		if(!user.getRole().equals(Role.ADMIN)) {
+			return true;
+		}
+	} catch (BadCredentialsException e) {
+		log.error("Incorrect Password");
+	}
+		return false;
+	}
+	
+	public boolean enrollStudents(Long student_id, Long course_id) {
+		Student student =	studentRepository.findStudentById(student_id).orElseThrow(
+			() -> new UserNotFoundException("User not found id: " + student_id));
+		Course course = courseRepository.findCourseById(course_id).orElseThrow(
+			() -> new CourseNotFoundException("Course not found id: " + course_id));
+		List<Enrollment> enrollment = enrollmentRepository.findAll();
+		Enrollment enrollees = new Enrollment(student, course);
+		for(Enrollment i : enrollment) {
+			if(i == enrollees) {
+				return false;
+			}
+		}
+		enrollmentRepository.save(enrollees);
+		return true;
+	}
 }
-==== C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Service\JwtService.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Service\JwtService.java -------- 
 package com.example.demo.Service;
 
 import java.security.Key;
@@ -684,7 +1069,7 @@ public class JwtService {
 	}
 
 //The token provided will be converted to
-//username if the token is valid
+//claims if the token is valid
 	public Claims extractAllClaims(String token) {
 		return Jwts
 				.parserBuilder()
@@ -735,7 +1120,7 @@ public class JwtService {
 				.compact();
 	}
 	
-//This is where the sign up data converted into tokens	
+//This is where it returns the token into string 
 	public String generateToken(UserDetails userDetails) {
 		return generateToken(new HashMap<>(), userDetails);
 	}
@@ -747,7 +1132,9 @@ public class JwtService {
 		return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
 	}
 }
-==== C:\Projects\SpringBoot1\demo\src\main\resources\application.yml ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\main\resources\application.yml -------- 
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/enrollment1?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
@@ -765,43 +1152,163 @@ spring:
     database: mysql
     database-platform: org.hibernate.dialect.MySQLDialect
 
-==== C:\Projects\SpringBoot1\demo\src\test\java\com\example\demo\DemoApplicationTests.java ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\src\test\java\com\example\demo\DemoApplicationTests.java -------- 
 package com.example.demo;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import com.example.demo.Model.Course;
+import com.example.demo.Model.Enrollment;
+import com.example.demo.Model.LoginRequest;
+import com.example.demo.Model.RegisterRequest;
+import com.example.demo.Model.Student;
+import com.example.demo.Repository.CourseRepository;
+import com.example.demo.Service.ApplicationService;
 import com.example.demo.Service.JwtService;
 
+import lombok.extern.slf4j.Slf4j;
+
+
 @SpringBootTest
+@Slf4j
 class DemoApplicationTests {
-	
-	private JwtService jwtService;
-	private UserDetails userDetails;
 
-	@BeforeEach
-	void setUp() {
-		jwtService = new JwtService();
-		userDetails = User.builder()
-				.username("raphael")
-				.password("12345")
-				.build();
+    @Autowired
+    private CourseRepository courseRepository;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private ApplicationService appService;
+    
+    private UserDetails userDetailsAdmin;
+    private UserDetails userDetailsUser;
+    private Course course;
+    private Student student;
+    private RegisterRequest requestUser;
+    private RegisterRequest requestAdmin;
+    private LoginRequest loginAdmin;
+    private LoginRequest loginUser;
+    private Enrollment enrollees;
+
+    @BeforeEach
+    void setUp() {    	
+    	loginAdmin = LoginRequest.builder()
+    			.email("lykaabad6@gmail.com")
+    			.password("1234")
+    			.build();
+    	
+    	loginUser = LoginRequest.builder()
+    			.email("raphaelsanjuan6@gmail.com")
+    			.password("1234")
+    			.build();
+    	
+        requestUser = RegisterRequest.builder()
+                .firstname("raphael")
+                .lastname("san juan")
+                .email("raphaelsanjuan6@gmail.com")
+                .password("1234")
+                .build();
+        
+        requestAdmin = RegisterRequest.builder()
+                .firstname("Lyka")
+                .lastname("Abad")
+                .email("lykaabad6@gmail.com")
+                .password("1234")
+                .build();
+
+        userDetailsAdmin = User.builder()
+        		.username("lykaabad6@gmail.com")
+        		.password("1234")
+        		.authorities(createAuthorityList("ROLE_ADMIN"))
+        		.build();
+        
+        userDetailsUser = User.builder()
+                .username("raphaelsanjuan6@gmail.com")
+                .password("1234")
+                .authorities(createAuthorityList("ROLE_USER"))
+                .build();
+
+        course = Course.builder()
+                .title("Information Technology")
+                .description("Focus on networking and coding")
+                .build();
+        
+        student = Student.builder()
+        		.email("raphaelsanjuan6@gmail.com")
+        		.gender("Male")
+        		.password("1234")
+        		.build();
+        
+    	enrollees = Enrollment.builder()
+    			.student(student)
+    			.course(course)
+    			.build();
+    }
+
+	private GrantedAuthority createAuthorityList(String string) {
+		return new SimpleGrantedAuthority(string);
 	}
-	
+
 	@Test
-	void testExtractUsername() {
-		String token = jwtService.generateToken(userDetails);
-		String username = jwtService.extractUsername(token);
-		assertEquals("raphael", username);
-	}
+    void testSignUp() {
+        String test = appService.registerUser(requestUser);
+        assertTrue(
+        		"Email is already sign up!".equals(test) || "Sign up successfully".equals(test),
+        		"Test must be either already sign up or sing up successfully");
+    }
 
+    @Test
+    void testExtractUsername() {
+        String token = jwtService.generateToken(userDetailsUser);
+        String username = jwtService.extractUsername(token);
+        assertEquals("raphaelsanjuan6@gmail.com", username);
+    }
+
+    @Test
+    void testAddCourse() {
+        appService.addCourse(course);
+        Optional<Course> courses = courseRepository.findCourseByTitle(course.getTitle());
+        assertTrue(courses.isPresent());
+        assertEquals(course.getTitle(), courses.get().getTitle());
+    }
+    
+    @Test
+    void testLogin() {
+    	String token = appService.login(loginUser);
+    	assertTrue(!token.isEmpty());
+    }
+    
+    @Test
+    void testApplyStudent() {
+    	boolean apply = appService.applyStudent(student);
+    	assertTrue(apply);
+    }
+    
+    @Test
+    void testEnrollStudent() {
+    	boolean enroll = appService.enrollStudents(1L, 1L);
+    	assertTrue(enroll);
+    }
 }
-==== C:\Projects\SpringBoot1\demo\target\classes\application.yml ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\target\classes\application.yml -------- 
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/enrollment1?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
@@ -819,7 +1326,9 @@ spring:
     database: mysql
     database-platform: org.hibernate.dialect.MySQLDialect
 
-==== C:\Projects\SpringBoot1\demo\target\classes\META-INF\maven\com.example\demo\pom.xml ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\target\classes\META-INF\maven\com.example\demo\pom.xml -------- 
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -941,7 +1450,9 @@ spring:
 	</build>
 
 </project>
-==== C:\Projects\SpringBoot1\demo\target\surefire-reports\TEST-com.example.demo.DemoApplicationTests.xml ==== 
+ 
+.
+-------- C:\Projects\SpringBoot1\demo\target\surefire-reports\TEST-com.example.demo.DemoApplicationTests.xml -------- 
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="com.example.demo.DemoApplicationTests" time="11.755" tests="1" errors="0" skipped="0" failures="0">
   <properties>
@@ -1058,4 +1569,5 @@ WARNING: If a serviceability tool is not in use, please run with -Djdk.instrumen
 WARNING: Dynamic loading of agents will be disallowed by default in a future release
 ]]></system-err>
   </testcase>
-</testsuite>
+</testsuite> 
+.

@@ -25,7 +25,7 @@ public class JwtService {
 	}
 
 //The token provided will be converted to
-//username if the token is valid
+//claims if the token is valid
 	public Claims extractAllClaims(String token) {
 		return Jwts
 				.parserBuilder()
@@ -76,7 +76,7 @@ public class JwtService {
 				.compact();
 	}
 	
-//This is where the sign up data converted into tokens	
+//This is where it returns the token into string 
 	public String generateToken(UserDetails userDetails) {
 		return generateToken(new HashMap<>(), userDetails);
 	}

@@ -35,7 +35,7 @@ public class HomeController {
 		return ResponseEntity.ok(service.registerAdmin(request));
 	}
 	
-	@PostMapping
+	@PostMapping("/login")
 	public ResponseEntity<String> login(@RequestBody LoginRequest request){
 		return ResponseEntity.ok(service.login(request));
 	}
