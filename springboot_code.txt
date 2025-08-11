@@ -1,4 +1,3 @@
--------- C:\Projects\SpringBoot1\demo\pom.xml -------- 
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -52,6 +51,11 @@
        <dependency>
     		<groupId>org.springframework.boot</groupId>
    			<artifactId>spring-boot-starter-validation</artifactId>
+	   </dependency>
+	   <dependency>
+    		<groupId>org.springdoc</groupId>
+    		<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+   			<version>2.5.0</version>
 	   </dependency>
 		<dependency>
     		<groupId>com.mysql</groupId>
@@ -121,8 +125,8 @@
 
 </project>
  
+---------------------------------------- 
 
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\DemoApplication.java -------- 
 package com.example.demo;
 
 import org.springframework.boot.SpringApplication;
@@ -134,11 +138,10 @@ public class DemoApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(DemoApplication.class, args);
 	}
-
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Configuration\ApplicationConfiguration.java -------- 
 package com.example.demo.Configuration;
 
 import org.springframework.context.annotation.Bean;
@@ -188,8 +191,8 @@ public class ApplicationConfiguration {
 	}
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Configuration\SecurityConfiguration.java -------- 
 package com.example.demo.Configuration;
 
 import org.springframework.context.annotation.Bean;
@@ -212,6 +215,13 @@ public class SecurityConfiguration {
 
 	private final AuthenticationProvider auth;
 	private final JwtAuthenticationFilter filter;
+	private static final String[] SWAGGER_WHITELIST = {
+		    "/v3/api-docs/**",
+		    "/swagger-ui/**",
+		    "/swagger-ui.html",
+		    "/swagger-resources/**",
+		    "/webjars/**"
+		};
 	
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -219,6 +229,8 @@ public class SecurityConfiguration {
 			.csrf()
 			.disable()
 			.authorizeHttpRequests()
+			.requestMatchers(SWAGGER_WHITELIST)
+			.permitAll()
 			.requestMatchers("/api/auth/**")
 			.permitAll()
 			.requestMatchers("/api/admin/**").hasRole("ADMIN")
@@ -231,19 +243,23 @@ public class SecurityConfiguration {
 			.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 			.and()
 			.authenticationProvider(auth)
-			.addFilterAfter(filter, UsernamePasswordAuthenticationFilter.class);
+			.addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class);
 			
 		return http.build();
 	}
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Controllers\AdminController.java -------- 
 package com.example.demo.Controllers;
+
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -251,13 +267,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.Model.Course;
+import com.example.demo.Model.StudentDTO;
 import com.example.demo.Service.ApplicationService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping(path= "/api/admin")
+@Tag(name= "Admin API", description= "Only admin can see this API and use all controllers")
 public class AdminController {
 
 	private final ApplicationService service;
@@ -268,6 +288,7 @@ public class AdminController {
 	}
 	
 	@PostMapping("/enrollstudent")
+	@Operation(summary= "Admin can ernoll student by param")
 	public ResponseEntity<String> enrollStudent(@RequestParam Long student_id, @RequestParam Long course_id){
 		boolean x = service.enrollStudents(student_id, course_id);
 		if(x) {
@@ -277,6 +298,7 @@ public class AdminController {
 	}
 	
 	@PostMapping("/addcourse")
+	@Operation(summary= "Admin can access on adding course")
 	public ResponseEntity<String> addCourse(@RequestBody Course course){
 		boolean x = service.addCourse(course);
 		if(x) {
@@ -284,10 +306,40 @@ public class AdminController {
 		} 
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body("The course is already added!");
 	}
+	
+	@PostMapping("/enrollees/course={id}/students")
+	@Operation(summary= "Admin can show all students enroll in that course")
+	public ResponseEntity<List<StudentDTO>> getStudents(@PathVariable Long id) {
+		List<StudentDTO> students = service.getStudents(id);
+		if(students != null) {
+			return ResponseEntity.ok(students);
+		}
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+	}
+	
+	@PostMapping("/enrollees/student={id}/courses")
+	@Operation(summary= "Admin can see all courses of what the student applied for")
+	public ResponseEntity<List<Course>> getCourses(@PathVariable Long id) {
+		List<Course> course = service.getCourses(id);
+		if(course != null) {
+			return ResponseEntity.ok(course);
+		}
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+	}
+	
+	@DeleteMapping("/courses/delete={id}")
+	@Operation(summary= "Admin can delete courses")
+	public ResponseEntity<String> deleteCourse(@PathVariable Long id) {
+		boolean x = service.deleteCourse(id);
+		if(x) {
+			return ResponseEntity.ok("Course has been deleted");
+		}
+		return ResponseEntity.notFound().build();
+	}
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Controllers\HomeController.java -------- 
 package com.example.demo.Controllers;
 
 import org.springframework.http.ResponseEntity;
@@ -301,11 +353,14 @@ import com.example.demo.Model.LoginRequest;
 import com.example.demo.Model.RegisterRequest;
 import com.example.demo.Service.ApplicationService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping(path= "/api/auth/home")
+@Tag(name= "Home API", description= "This is the face of the website, everyone has access")
 public class HomeController {
 
 	private final ApplicationService service;
@@ -316,24 +371,27 @@ public class HomeController {
 	}
 	
 	@PostMapping("/user/signup")
+	@Operation(summary= "If you want to sign up as user to be converted into student")
 	public ResponseEntity<String> signUpUser(@RequestBody  RegisterRequest request) {
 		return ResponseEntity.ok(service.registerUser(request));
 	}
 	
 	@PostMapping("/admin/signup")
+	@Operation(summary= "This is if you are a teacher of the school")
 	public ResponseEntity<String> signUpAdmin(@RequestBody  RegisterRequest request) {
 		return ResponseEntity.ok(service.registerAdmin(request));
 	}
 	
 	@PostMapping("/login")
+	@Operation(summary= "Whether you are user or admin you must login here")
 	public ResponseEntity<String> login(@RequestBody LoginRequest request){
 		return ResponseEntity.ok(service.login(request));
 	}
 	
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Controllers\StudentController.java -------- 
 package com.example.demo.Controllers;
 
 import org.springframework.http.HttpStatus;
@@ -346,16 +404,20 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.demo.Model.Student;
 import com.example.demo.Service.ApplicationService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping(path= "/api/student")
+@Tag(name= "Student API", description="All user who whats to be a student can only access")
 public class StudentController {
 	
 	private final ApplicationService service;
 	
 	@PostMapping("/applystudent")
+	@Operation(summary= "A user can apply for a student")
 	public ResponseEntity<String> applyStudent(@RequestBody Student student){
 		boolean x = service.applyStudent(student);
 		if(x) {
@@ -365,29 +427,28 @@ public class StudentController {
 	}
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Controllers\UserController.java -------- 
 package com.example.demo.Controllers;
 
 import java.util.List;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.Model.AccountDTO;
-import com.example.demo.Model.Student;
 import com.example.demo.Service.ApplicationService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping(path= "/api/user")
+@Tag(name= "User interface API", description= "Admin and user can see this endpoint")
 public class UserController {
 
 	private final ApplicationService service;
@@ -398,14 +459,15 @@ public class UserController {
 	}
 	
 	@GetMapping("/users")
+	@Operation(summary= "User can see all user in that website to know which is there friend or classmates")
 	public ResponseEntity<List<AccountDTO>> allUsers(){
 		return ResponseEntity.ok(service.showAllUser());
 	}
 	
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\ErrorHandler\CourseNotFoundException.java -------- 
 package com.example.demo.ErrorHandler;
 
 public class CourseNotFoundException extends RuntimeException{
@@ -415,8 +477,8 @@ public class CourseNotFoundException extends RuntimeException{
 	}
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\ErrorHandler\GlobalHandlerException.java -------- 
 package com.example.demo.ErrorHandler;
 
 import java.util.HashMap;
@@ -450,8 +512,8 @@ public class GlobalHandlerException {
 	}
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\ErrorHandler\UserNotFoundException.java -------- 
 package com.example.demo.ErrorHandler;
 
 public class UserNotFoundException extends RuntimeException{
@@ -461,8 +523,8 @@ public class UserNotFoundException extends RuntimeException{
 	}
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\AccountDTO.java -------- 
 package com.example.demo.Model;
 
 import lombok.AllArgsConstructor;
@@ -481,8 +543,8 @@ public class AccountDTO {
 	private String email;
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\Course.java -------- 
 package com.example.demo.Model;
 
 import java.util.ArrayList;
@@ -523,9 +585,11 @@ public class Course {
 	private List<Enrollment> enrollment = new ArrayList<>();
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\Enrollment.java -------- 
 package com.example.demo.Model;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -557,10 +621,12 @@ public class Enrollment {
 	
 	@ManyToOne
 	@JoinColumn(name= "student_id")
+	@JsonIgnore
 	private Student student;
 	
 	@ManyToOne
 	@JoinColumn(name= "course_id")
+	@JsonIgnore
 	private Course course;
 	
 	public Enrollment(Student student, Course course) {
@@ -569,8 +635,8 @@ public class Enrollment {
 	}
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\LoginRequest.java -------- 
 package com.example.demo.Model;
 
 import lombok.AllArgsConstructor;
@@ -588,8 +654,8 @@ public class LoginRequest {
 	String password;
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\RegisterRequest.java -------- 
 package com.example.demo.Model;
 
 import lombok.AllArgsConstructor;
@@ -609,8 +675,8 @@ public class RegisterRequest {
 	private String password;
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\Role.java -------- 
 package com.example.demo.Model;
 
 public enum Role {
@@ -619,8 +685,8 @@ public enum Role {
 	ADMIN
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\Student.java -------- 
 package com.example.demo.Model;
 
 import java.util.ArrayList;
@@ -665,8 +731,27 @@ public class Student {
 	
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Model\User.java -------- 
+package com.example.demo.Model;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class StudentDTO {
+
+	private String email;
+	private String gender;
+}
+ 
+---------------------------------------- 
+.
 package com.example.demo.Model;
 
 import java.util.ArrayList;
@@ -724,8 +809,8 @@ public class User implements UserDetails{
 	}
     
 } 
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Repository\CourseRepository.java -------- 
 package com.example.demo.Repository;
 
 import java.util.Optional;
@@ -745,19 +830,23 @@ public interface CourseRepository extends JpaRepository<Course, Long>{
 	Optional<Course> findCourseByTitle(String title);
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Repository\EnrollmentRepository.java -------- 
 package com.example.demo.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import com.example.demo.Model.Course;
 import com.example.demo.Model.Enrollment;
 import com.example.demo.Model.Student;
+
+import jakarta.transaction.Transactional;
 
 @Repository
 public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>{
@@ -776,10 +865,14 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>{
 	
 	@Query("SELECT s.course FROM Enrollment s WHERE s.student.id = ?1")
 		Course findCoursesById(Long id);
+	
+	@Modifying @Transactional @Query("DELETE FROM Enrollment s WHERE s.course.id = ?1")
+		int deleteCourseById (int id);
+		
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Repository\StudentRepository.java -------- 
 package com.example.demo.Repository;
 
 import java.util.Optional;
@@ -797,8 +890,8 @@ public interface StudentRepository extends JpaRepository<Student, Long>{
 	Optional<Student> findStudentById (Long id);
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Repository\UserRepository.java -------- 
 package com.example.demo.Repository;
 
 import java.util.List;
@@ -821,8 +914,8 @@ public interface UserRepository extends JpaRepository<User, Integer>{
 	Optional<User> findUserById(Long id);
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Security\JwtAuthenticationFilter.java -------- 
 package com.example.demo.Security;
 
 import java.io.IOException;
@@ -861,11 +954,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			@NonNull HttpServletResponse response, 
 			@NonNull FilterChain filterChain)
 			throws ServletException, IOException {
+		
+	    String path = request.getServletPath();
+	    if (path.startsWith("/swagger-ui") ||
+	        path.startsWith("/v3/api-docs") ||
+	        path.startsWith("/swagger-resources") ||
+	        path.startsWith("/webjars")) {
+	        filterChain.doFilter(request, response);
+	        return;
+	    }
+	    
 		String authHeader = request.getHeader("Authorization");
 		String jwt;
 		String userEmail;
 		
-		if(authHeader == null || !authHeader.startsWith("Bearer")) {
+		if(authHeader == null || !authHeader.startsWith("Bearer ")) {
 			filterChain.doFilter(request, response);
 			return;
 		}
@@ -887,14 +990,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 				auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 				SecurityContextHolder.getContext().setAuthentication(auth);
 			}
-			filterChain.doFilter(request, response);
 		}
+		filterChain.doFilter(request, response);
 	}
-
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Service\ApplicationService.java -------- 
 package com.example.demo.Service;
 
 import java.util.ArrayList;
@@ -916,6 +1018,7 @@ import com.example.demo.Model.LoginRequest;
 import com.example.demo.Model.RegisterRequest;
 import com.example.demo.Model.Role;
 import com.example.demo.Model.Student;
+import com.example.demo.Model.StudentDTO;
 import com.example.demo.Model.User;
 import com.example.demo.Repository.CourseRepository;
 import com.example.demo.Repository.EnrollmentRepository;
@@ -972,7 +1075,6 @@ public class ApplicationService {
 			return "Email is already sign up!";
 		}
 	}
-	
 	
 	public String login(LoginRequest request) {
 	  try {
@@ -1038,10 +1140,35 @@ public class ApplicationService {
 		enrollmentRepository.save(enrollees);
 		return true;
 	}
+	
+	public List<StudentDTO> getStudents(Long course_id) {
+		List<Student> students = enrollmentRepository.findUserById(course_id);
+		List<StudentDTO> studentsDTO = new ArrayList<>();
+		for(Student i : students) {
+			StudentDTO student = new StudentDTO(i.getEmail(), i.getGender());
+			studentsDTO.add(student);
+		}
+		return studentsDTO;
+	}
+	
+	public List<Course> getCourses(Long student_id) {
+		List<Course> courses = enrollmentRepository.findCourseById(student_id);
+		return courses;
+	}
+	
+	public boolean deleteCourse(Long course_id) {
+		Optional<Course> course = courseRepository.findCourseById(course_id);
+		if(course.isPresent()) {
+			enrollmentRepository.deleteCourseById(course_id.intValue());
+			courseRepository.deleteById(course_id);
+			return true;
+		}
+		return false;
+	}
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\java\com\example\demo\Service\JwtService.java -------- 
 package com.example.demo.Service;
 
 import java.security.Key;
@@ -1133,8 +1260,8 @@ public class JwtService {
 	}
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\main\resources\application.yml -------- 
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/enrollment1?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
@@ -1153,13 +1280,12 @@ spring:
     database-platform: org.hibernate.dialect.MySQLDialect
 
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\src\test\java\com\example\demo\DemoApplicationTests.java -------- 
 package com.example.demo;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -1301,14 +1427,14 @@ class DemoApplicationTests {
     }
     
     @Test
-    void testEnrollStudent() {
-    	boolean enroll = appService.enrollStudents(1L, 1L);
-    	assertTrue(enroll);
+    void testDeleteCourse() {
+    	boolean x = appService.deleteCourse(1L);
+    	assertTrue(x);
     }
 }
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\target\classes\application.yml -------- 
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/enrollment1?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
@@ -1327,8 +1453,8 @@ spring:
     database-platform: org.hibernate.dialect.MySQLDialect
 
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\target\classes\META-INF\maven\com.example\demo\pom.xml -------- 
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -1382,6 +1508,11 @@ spring:
        <dependency>
     		<groupId>org.springframework.boot</groupId>
    			<artifactId>spring-boot-starter-validation</artifactId>
+	   </dependency>
+	   <dependency>
+    		<groupId>org.springdoc</groupId>
+    		<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+   			<version>2.5.0</version>
 	   </dependency>
 		<dependency>
     		<groupId>com.mysql</groupId>
@@ -1451,15 +1582,15 @@ spring:
 
 </project>
  
+---------------------------------------- 
 .
--------- C:\Projects\SpringBoot1\demo\target\surefire-reports\TEST-com.example.demo.DemoApplicationTests.xml -------- 
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="com.example.demo.DemoApplicationTests" time="11.755" tests="1" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="com.example.demo.DemoApplicationTests" time="15.211" tests="6" errors="1" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="sun.cpu.isalist" value="amd64"/>
     <property name="sun.jnu.encoding" value="Cp1252"/>
-    <property name="java.class.path" value="C:\Projects\SpringBoot1\demo\target\test-classes;C:\Projects\SpringBoot1\demo\target\classes;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-data-jpa\3.5.4\spring-boot-starter-data-jpa-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter\3.5.4\spring-boot-starter-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot\3.5.4\spring-boot-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-autoconfigure\3.5.4\spring-boot-autoconfigure-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-logging\3.5.4\spring-boot-starter-logging-3.5.4.jar;C:\Users\Test\.m2\repository\ch\qos\logback\logback-classic\1.5.18\logback-classic-1.5.18.jar;C:\Users\Test\.m2\repository\ch\qos\logback\logback-core\1.5.18\logback-core-1.5.18.jar;C:\Users\Test\.m2\repository\org\apache\logging\log4j\log4j-to-slf4j\2.24.3\log4j-to-slf4j-2.24.3.jar;C:\Users\Test\.m2\repository\org\apache\logging\log4j\log4j-api\2.24.3\log4j-api-2.24.3.jar;C:\Users\Test\.m2\repository\org\slf4j\jul-to-slf4j\2.0.17\jul-to-slf4j-2.0.17.jar;C:\Users\Test\.m2\repository\jakarta\annotation\jakarta.annotation-api\2.1.1\jakarta.annotation-api-2.1.1.jar;C:\Users\Test\.m2\repository\org\yaml\snakeyaml\2.4\snakeyaml-2.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-jdbc\3.5.4\spring-boot-starter-jdbc-3.5.4.jar;C:\Users\Test\.m2\repository\com\zaxxer\HikariCP\6.3.1\HikariCP-6.3.1.jar;C:\Users\Test\.m2\repository\org\springframework\spring-jdbc\6.2.9\spring-jdbc-6.2.9.jar;C:\Users\Test\.m2\repository\org\hibernate\orm\hibernate-core\6.6.22.Final\hibernate-core-6.6.22.Final.jar;C:\Users\Test\.m2\repository\jakarta\persistence\jakarta.persistence-api\3.1.0\jakarta.persistence-api-3.1.0.jar;C:\Users\Test\.m2\repository\jakarta\transaction\jakarta.transaction-api\2.0.1\jakarta.transaction-api-2.0.1.jar;C:\Users\Test\.m2\repository\org\jboss\logging\jboss-logging\3.6.1.Final\jboss-logging-3.6.1.Final.jar;C:\Users\Test\.m2\repository\org\hibernate\common\hibernate-commons-annotations\7.0.3.Final\hibernate-commons-annotations-7.0.3.Final.jar;C:\Users\Test\.m2\repository\io\smallrye\jandex\3.2.0\jandex-3.2.0.jar;C:\Users\Test\.m2\repository\com\fasterxml\classmate\1.7.0\classmate-1.7.0.jar;C:\Users\Test\.m2\repository\net\bytebuddy\byte-buddy\1.17.6\byte-buddy-1.17.6.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\jaxb-runtime\4.0.5\jaxb-runtime-4.0.5.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\jaxb-core\4.0.5\jaxb-core-4.0.5.jar;C:\Users\Test\.m2\repository\org\eclipse\angus\angus-activation\2.0.2\angus-activation-2.0.2.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\txw2\4.0.5\txw2-4.0.5.jar;C:\Users\Test\.m2\repository\com\sun\istack\istack-commons-runtime\4.1.2\istack-commons-runtime-4.1.2.jar;C:\Users\Test\.m2\repository\jakarta\inject\jakarta.inject-api\2.0.1\jakarta.inject-api-2.0.1.jar;C:\Users\Test\.m2\repository\org\antlr\antlr4-runtime\4.13.0\antlr4-runtime-4.13.0.jar;C:\Users\Test\.m2\repository\org\springframework\data\spring-data-jpa\3.5.2\spring-data-jpa-3.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\data\spring-data-commons\3.5.2\spring-data-commons-3.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-orm\6.2.9\spring-orm-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-context\6.2.9\spring-context-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-tx\6.2.9\spring-tx-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-beans\6.2.9\spring-beans-6.2.9.jar;C:\Users\Test\.m2\repository\org\slf4j\slf4j-api\2.0.17\slf4j-api-2.0.17.jar;C:\Users\Test\.m2\repository\org\springframework\spring-aspects\6.2.9\spring-aspects-6.2.9.jar;C:\Users\Test\.m2\repository\org\aspectj\aspectjweaver\1.9.24\aspectjweaver-1.9.24.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-security\3.5.4\spring-boot-starter-security-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\spring-aop\6.2.9\spring-aop-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-config\6.5.2\spring-security-config-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-web\6.5.2\spring-security-web-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-expression\6.2.9\spring-expression-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-web\3.5.4\spring-boot-starter-web-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-json\3.5.4\spring-boot-starter-json-3.5.4.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jdk8\2.19.2\jackson-datatype-jdk8-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jsr310\2.19.2\jackson-datatype-jsr310-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\module\jackson-module-parameter-names\2.19.2\jackson-module-parameter-names-2.19.2.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat\3.5.4\spring-boot-starter-tomcat-3.5.4.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-core\10.1.43\tomcat-embed-core-10.1.43.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-el\10.1.43\tomcat-embed-el-10.1.43.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-websocket\10.1.43\tomcat-embed-websocket-10.1.43.jar;C:\Users\Test\.m2\repository\org\springframework\spring-web\6.2.9\spring-web-6.2.9.jar;C:\Users\Test\.m2\repository\io\micrometer\micrometer-observation\1.15.2\micrometer-observation-1.15.2.jar;C:\Users\Test\.m2\repository\io\micrometer\micrometer-commons\1.15.2\micrometer-commons-1.15.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-webmvc\6.2.9\spring-webmvc-6.2.9.jar;C:\Users\Test\.m2\repository\com\mysql\mysql-connector-j\9.3.0\mysql-connector-j-9.3.0.jar;C:\Users\Test\.m2\repository\org\projectlombok\lombok\1.18.38\lombok-1.18.38.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-api\0.11.5\jjwt-api-0.11.5.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-impl\0.11.5\jjwt-impl-0.11.5.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-jackson\0.11.5\jjwt-jackson-0.11.5.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.19.2\jackson-databind-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-annotations\2.19.2\jackson-annotations-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.19.2\jackson-core-2.19.2.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-test\3.5.4\spring-boot-starter-test-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-test\3.5.4\spring-boot-test-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-test-autoconfigure\3.5.4\spring-boot-test-autoconfigure-3.5.4.jar;C:\Users\Test\.m2\repository\com\jayway\jsonpath\json-path\2.9.0\json-path-2.9.0.jar;C:\Users\Test\.m2\repository\jakarta\xml\bind\jakarta.xml.bind-api\4.0.2\jakarta.xml.bind-api-4.0.2.jar;C:\Users\Test\.m2\repository\jakarta\activation\jakarta.activation-api\2.1.3\jakarta.activation-api-2.1.3.jar;C:\Users\Test\.m2\repository\net\minidev\json-smart\2.5.2\json-smart-2.5.2.jar;C:\Users\Test\.m2\repository\net\minidev\accessors-smart\2.5.2\accessors-smart-2.5.2.jar;C:\Users\Test\.m2\repository\org\ow2\asm\asm\9.7.1\asm-9.7.1.jar;C:\Users\Test\.m2\repository\org\assertj\assertj-core\3.27.3\assertj-core-3.27.3.jar;C:\Users\Test\.m2\repository\org\awaitility\awaitility\4.2.2\awaitility-4.2.2.jar;C:\Users\Test\.m2\repository\org\hamcrest\hamcrest\3.0\hamcrest-3.0.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter\5.12.2\junit-jupiter-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.12.2\junit-jupiter-api-5.12.2.jar;C:\Users\Test\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\Test\.m2\repository\org\junit\platform\junit-platform-commons\1.12.2\junit-platform-commons-1.12.2.jar;C:\Users\Test\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.12.2\junit-jupiter-params-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.12.2\junit-jupiter-engine-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\platform\junit-platform-engine\1.12.2\junit-platform-engine-1.12.2.jar;C:\Users\Test\.m2\repository\org\mockito\mockito-core\5.17.0\mockito-core-5.17.0.jar;C:\Users\Test\.m2\repository\net\bytebuddy\byte-buddy-agent\1.17.6\byte-buddy-agent-1.17.6.jar;C:\Users\Test\.m2\repository\org\objenesis\objenesis\3.3\objenesis-3.3.jar;C:\Users\Test\.m2\repository\org\mockito\mockito-junit-jupiter\5.17.0\mockito-junit-jupiter-5.17.0.jar;C:\Users\Test\.m2\repository\org\skyscreamer\jsonassert\1.5.3\jsonassert-1.5.3.jar;C:\Users\Test\.m2\repository\com\vaadin\external\google\android-json\0.0.20131108.vaadin1\android-json-0.0.20131108.vaadin1.jar;C:\Users\Test\.m2\repository\org\springframework\spring-core\6.2.9\spring-core-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-jcl\6.2.9\spring-jcl-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-test\6.2.9\spring-test-6.2.9.jar;C:\Users\Test\.m2\repository\org\xmlunit\xmlunit-core\2.10.3\xmlunit-core-2.10.3.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-test\6.5.2\spring-security-test-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-core\6.5.2\spring-security-core-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-crypto\6.5.2\spring-security-crypto-6.5.2.jar;"/>
+    <property name="java.class.path" value="C:\Projects\SpringBoot1\demo\target\test-classes;C:\Projects\SpringBoot1\demo\target\classes;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-data-jpa\3.5.4\spring-boot-starter-data-jpa-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter\3.5.4\spring-boot-starter-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-logging\3.5.4\spring-boot-starter-logging-3.5.4.jar;C:\Users\Test\.m2\repository\ch\qos\logback\logback-classic\1.5.18\logback-classic-1.5.18.jar;C:\Users\Test\.m2\repository\ch\qos\logback\logback-core\1.5.18\logback-core-1.5.18.jar;C:\Users\Test\.m2\repository\org\apache\logging\log4j\log4j-to-slf4j\2.24.3\log4j-to-slf4j-2.24.3.jar;C:\Users\Test\.m2\repository\org\apache\logging\log4j\log4j-api\2.24.3\log4j-api-2.24.3.jar;C:\Users\Test\.m2\repository\org\slf4j\jul-to-slf4j\2.0.17\jul-to-slf4j-2.0.17.jar;C:\Users\Test\.m2\repository\jakarta\annotation\jakarta.annotation-api\2.1.1\jakarta.annotation-api-2.1.1.jar;C:\Users\Test\.m2\repository\org\yaml\snakeyaml\2.4\snakeyaml-2.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-jdbc\3.5.4\spring-boot-starter-jdbc-3.5.4.jar;C:\Users\Test\.m2\repository\com\zaxxer\HikariCP\6.3.1\HikariCP-6.3.1.jar;C:\Users\Test\.m2\repository\org\springframework\spring-jdbc\6.2.9\spring-jdbc-6.2.9.jar;C:\Users\Test\.m2\repository\org\hibernate\orm\hibernate-core\6.6.22.Final\hibernate-core-6.6.22.Final.jar;C:\Users\Test\.m2\repository\jakarta\persistence\jakarta.persistence-api\3.1.0\jakarta.persistence-api-3.1.0.jar;C:\Users\Test\.m2\repository\jakarta\transaction\jakarta.transaction-api\2.0.1\jakarta.transaction-api-2.0.1.jar;C:\Users\Test\.m2\repository\org\jboss\logging\jboss-logging\3.6.1.Final\jboss-logging-3.6.1.Final.jar;C:\Users\Test\.m2\repository\org\hibernate\common\hibernate-commons-annotations\7.0.3.Final\hibernate-commons-annotations-7.0.3.Final.jar;C:\Users\Test\.m2\repository\io\smallrye\jandex\3.2.0\jandex-3.2.0.jar;C:\Users\Test\.m2\repository\com\fasterxml\classmate\1.7.0\classmate-1.7.0.jar;C:\Users\Test\.m2\repository\net\bytebuddy\byte-buddy\1.17.6\byte-buddy-1.17.6.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\jaxb-runtime\4.0.5\jaxb-runtime-4.0.5.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\jaxb-core\4.0.5\jaxb-core-4.0.5.jar;C:\Users\Test\.m2\repository\org\eclipse\angus\angus-activation\2.0.2\angus-activation-2.0.2.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\txw2\4.0.5\txw2-4.0.5.jar;C:\Users\Test\.m2\repository\com\sun\istack\istack-commons-runtime\4.1.2\istack-commons-runtime-4.1.2.jar;C:\Users\Test\.m2\repository\jakarta\inject\jakarta.inject-api\2.0.1\jakarta.inject-api-2.0.1.jar;C:\Users\Test\.m2\repository\org\antlr\antlr4-runtime\4.13.0\antlr4-runtime-4.13.0.jar;C:\Users\Test\.m2\repository\org\springframework\data\spring-data-jpa\3.5.2\spring-data-jpa-3.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\data\spring-data-commons\3.5.2\spring-data-commons-3.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-orm\6.2.9\spring-orm-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-context\6.2.9\spring-context-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-tx\6.2.9\spring-tx-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-beans\6.2.9\spring-beans-6.2.9.jar;C:\Users\Test\.m2\repository\org\slf4j\slf4j-api\2.0.17\slf4j-api-2.0.17.jar;C:\Users\Test\.m2\repository\org\springframework\spring-aspects\6.2.9\spring-aspects-6.2.9.jar;C:\Users\Test\.m2\repository\org\aspectj\aspectjweaver\1.9.24\aspectjweaver-1.9.24.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-security\3.5.4\spring-boot-starter-security-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\spring-aop\6.2.9\spring-aop-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-config\6.5.2\spring-security-config-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-web\6.5.2\spring-security-web-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-expression\6.2.9\spring-expression-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-web\3.5.4\spring-boot-starter-web-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-json\3.5.4\spring-boot-starter-json-3.5.4.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jdk8\2.19.2\jackson-datatype-jdk8-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jsr310\2.19.2\jackson-datatype-jsr310-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\module\jackson-module-parameter-names\2.19.2\jackson-module-parameter-names-2.19.2.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat\3.5.4\spring-boot-starter-tomcat-3.5.4.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-core\10.1.43\tomcat-embed-core-10.1.43.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-websocket\10.1.43\tomcat-embed-websocket-10.1.43.jar;C:\Users\Test\.m2\repository\org\springframework\spring-web\6.2.9\spring-web-6.2.9.jar;C:\Users\Test\.m2\repository\io\micrometer\micrometer-observation\1.15.2\micrometer-observation-1.15.2.jar;C:\Users\Test\.m2\repository\io\micrometer\micrometer-commons\1.15.2\micrometer-commons-1.15.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-webmvc\6.2.9\spring-webmvc-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-devtools\3.5.4\spring-boot-devtools-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot\3.5.4\spring-boot-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-autoconfigure\3.5.4\spring-boot-autoconfigure-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-validation\3.5.4\spring-boot-starter-validation-3.5.4.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-el\10.1.43\tomcat-embed-el-10.1.43.jar;C:\Users\Test\.m2\repository\org\hibernate\validator\hibernate-validator\8.0.2.Final\hibernate-validator-8.0.2.Final.jar;C:\Users\Test\.m2\repository\jakarta\validation\jakarta.validation-api\3.0.2\jakarta.validation-api-3.0.2.jar;C:\Users\Test\.m2\repository\org\springdoc\springdoc-openapi-starter-webmvc-ui\2.5.0\springdoc-openapi-starter-webmvc-ui-2.5.0.jar;C:\Users\Test\.m2\repository\org\springdoc\springdoc-openapi-starter-webmvc-api\2.5.0\springdoc-openapi-starter-webmvc-api-2.5.0.jar;C:\Users\Test\.m2\repository\org\springdoc\springdoc-openapi-starter-common\2.5.0\springdoc-openapi-starter-common-2.5.0.jar;C:\Users\Test\.m2\repository\io\swagger\core\v3\swagger-core-jakarta\2.2.21\swagger-core-jakarta-2.2.21.jar;C:\Users\Test\.m2\repository\org\apache\commons\commons-lang3\3.17.0\commons-lang3-3.17.0.jar;C:\Users\Test\.m2\repository\io\swagger\core\v3\swagger-annotations-jakarta\2.2.21\swagger-annotations-jakarta-2.2.21.jar;C:\Users\Test\.m2\repository\io\swagger\core\v3\swagger-models-jakarta\2.2.21\swagger-models-jakarta-2.2.21.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\dataformat\jackson-dataformat-yaml\2.19.2\jackson-dataformat-yaml-2.19.2.jar;C:\Users\Test\.m2\repository\org\webjars\swagger-ui\5.13.0\swagger-ui-5.13.0.jar;C:\Users\Test\.m2\repository\com\mysql\mysql-connector-j\9.3.0\mysql-connector-j-9.3.0.jar;C:\Users\Test\.m2\repository\org\projectlombok\lombok\1.18.38\lombok-1.18.38.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-api\0.11.5\jjwt-api-0.11.5.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-impl\0.11.5\jjwt-impl-0.11.5.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-jackson\0.11.5\jjwt-jackson-0.11.5.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.19.2\jackson-databind-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-annotations\2.19.2\jackson-annotations-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.19.2\jackson-core-2.19.2.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-test\3.5.4\spring-boot-starter-test-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-test\3.5.4\spring-boot-test-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-test-autoconfigure\3.5.4\spring-boot-test-autoconfigure-3.5.4.jar;C:\Users\Test\.m2\repository\com\jayway\jsonpath\json-path\2.9.0\json-path-2.9.0.jar;C:\Users\Test\.m2\repository\jakarta\xml\bind\jakarta.xml.bind-api\4.0.2\jakarta.xml.bind-api-4.0.2.jar;C:\Users\Test\.m2\repository\jakarta\activation\jakarta.activation-api\2.1.3\jakarta.activation-api-2.1.3.jar;C:\Users\Test\.m2\repository\net\minidev\json-smart\2.5.2\json-smart-2.5.2.jar;C:\Users\Test\.m2\repository\net\minidev\accessors-smart\2.5.2\accessors-smart-2.5.2.jar;C:\Users\Test\.m2\repository\org\ow2\asm\asm\9.7.1\asm-9.7.1.jar;C:\Users\Test\.m2\repository\org\assertj\assertj-core\3.27.3\assertj-core-3.27.3.jar;C:\Users\Test\.m2\repository\org\awaitility\awaitility\4.2.2\awaitility-4.2.2.jar;C:\Users\Test\.m2\repository\org\hamcrest\hamcrest\3.0\hamcrest-3.0.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter\5.12.2\junit-jupiter-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.12.2\junit-jupiter-api-5.12.2.jar;C:\Users\Test\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\Test\.m2\repository\org\junit\platform\junit-platform-commons\1.12.2\junit-platform-commons-1.12.2.jar;C:\Users\Test\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.12.2\junit-jupiter-params-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.12.2\junit-jupiter-engine-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\platform\junit-platform-engine\1.12.2\junit-platform-engine-1.12.2.jar;C:\Users\Test\.m2\repository\org\mockito\mockito-core\5.17.0\mockito-core-5.17.0.jar;C:\Users\Test\.m2\repository\net\bytebuddy\byte-buddy-agent\1.17.6\byte-buddy-agent-1.17.6.jar;C:\Users\Test\.m2\repository\org\objenesis\objenesis\3.3\objenesis-3.3.jar;C:\Users\Test\.m2\repository\org\mockito\mockito-junit-jupiter\5.17.0\mockito-junit-jupiter-5.17.0.jar;C:\Users\Test\.m2\repository\org\skyscreamer\jsonassert\1.5.3\jsonassert-1.5.3.jar;C:\Users\Test\.m2\repository\com\vaadin\external\google\android-json\0.0.20131108.vaadin1\android-json-0.0.20131108.vaadin1.jar;C:\Users\Test\.m2\repository\org\springframework\spring-core\6.2.9\spring-core-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-jcl\6.2.9\spring-jcl-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-test\6.2.9\spring-test-6.2.9.jar;C:\Users\Test\.m2\repository\org\xmlunit\xmlunit-core\2.10.3\xmlunit-core-2.10.3.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-test\6.5.2\spring-security-test-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-core\6.5.2\spring-security-core-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-crypto\6.5.2\spring-security-crypto-6.5.2.jar;"/>
     <property name="java.vm.vendor" value="Eclipse Adoptium"/>
     <property name="sun.arch.data.model" value="64"/>
     <property name="user.variant" value=""/>
@@ -1471,9 +1602,9 @@ spring:
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="US"/>
     <property name="sun.boot.library.path" value="C:\java\eclipse\plugins\org.eclipse.justj.openjdk.hotspot.jre.full.win32.x86_64_21.0.5.v20241023-1957\jre\bin"/>
-    <property name="sun.java.command" value="C:\Users\Test\AppData\Local\Temp\surefire15143580806485010631\surefirebooter-20250808180827902_3.jar C:\Users\Test\AppData\Local\Temp\surefire15143580806485010631 2025-08-08T18-08-27_518-jvmRun1 surefire-20250808180827902_1tmp surefire_0-20250808180827902_2tmp"/>
+    <property name="sun.java.command" value="C:\Users\Test\AppData\Local\Temp\surefire7612392210119227222\surefirebooter-20250811210507321_3.jar C:\Users\Test\AppData\Local\Temp\surefire7612392210119227222 2025-08-11T21-05-06_936-jvmRun1 surefire-20250811210507321_1tmp surefire_0-20250811210507321_2tmp"/>
     <property name="jdk.debug" value="release"/>
-    <property name="surefire.test.class.path" value="C:\Projects\SpringBoot1\demo\target\test-classes;C:\Projects\SpringBoot1\demo\target\classes;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-data-jpa\3.5.4\spring-boot-starter-data-jpa-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter\3.5.4\spring-boot-starter-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot\3.5.4\spring-boot-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-autoconfigure\3.5.4\spring-boot-autoconfigure-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-logging\3.5.4\spring-boot-starter-logging-3.5.4.jar;C:\Users\Test\.m2\repository\ch\qos\logback\logback-classic\1.5.18\logback-classic-1.5.18.jar;C:\Users\Test\.m2\repository\ch\qos\logback\logback-core\1.5.18\logback-core-1.5.18.jar;C:\Users\Test\.m2\repository\org\apache\logging\log4j\log4j-to-slf4j\2.24.3\log4j-to-slf4j-2.24.3.jar;C:\Users\Test\.m2\repository\org\apache\logging\log4j\log4j-api\2.24.3\log4j-api-2.24.3.jar;C:\Users\Test\.m2\repository\org\slf4j\jul-to-slf4j\2.0.17\jul-to-slf4j-2.0.17.jar;C:\Users\Test\.m2\repository\jakarta\annotation\jakarta.annotation-api\2.1.1\jakarta.annotation-api-2.1.1.jar;C:\Users\Test\.m2\repository\org\yaml\snakeyaml\2.4\snakeyaml-2.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-jdbc\3.5.4\spring-boot-starter-jdbc-3.5.4.jar;C:\Users\Test\.m2\repository\com\zaxxer\HikariCP\6.3.1\HikariCP-6.3.1.jar;C:\Users\Test\.m2\repository\org\springframework\spring-jdbc\6.2.9\spring-jdbc-6.2.9.jar;C:\Users\Test\.m2\repository\org\hibernate\orm\hibernate-core\6.6.22.Final\hibernate-core-6.6.22.Final.jar;C:\Users\Test\.m2\repository\jakarta\persistence\jakarta.persistence-api\3.1.0\jakarta.persistence-api-3.1.0.jar;C:\Users\Test\.m2\repository\jakarta\transaction\jakarta.transaction-api\2.0.1\jakarta.transaction-api-2.0.1.jar;C:\Users\Test\.m2\repository\org\jboss\logging\jboss-logging\3.6.1.Final\jboss-logging-3.6.1.Final.jar;C:\Users\Test\.m2\repository\org\hibernate\common\hibernate-commons-annotations\7.0.3.Final\hibernate-commons-annotations-7.0.3.Final.jar;C:\Users\Test\.m2\repository\io\smallrye\jandex\3.2.0\jandex-3.2.0.jar;C:\Users\Test\.m2\repository\com\fasterxml\classmate\1.7.0\classmate-1.7.0.jar;C:\Users\Test\.m2\repository\net\bytebuddy\byte-buddy\1.17.6\byte-buddy-1.17.6.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\jaxb-runtime\4.0.5\jaxb-runtime-4.0.5.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\jaxb-core\4.0.5\jaxb-core-4.0.5.jar;C:\Users\Test\.m2\repository\org\eclipse\angus\angus-activation\2.0.2\angus-activation-2.0.2.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\txw2\4.0.5\txw2-4.0.5.jar;C:\Users\Test\.m2\repository\com\sun\istack\istack-commons-runtime\4.1.2\istack-commons-runtime-4.1.2.jar;C:\Users\Test\.m2\repository\jakarta\inject\jakarta.inject-api\2.0.1\jakarta.inject-api-2.0.1.jar;C:\Users\Test\.m2\repository\org\antlr\antlr4-runtime\4.13.0\antlr4-runtime-4.13.0.jar;C:\Users\Test\.m2\repository\org\springframework\data\spring-data-jpa\3.5.2\spring-data-jpa-3.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\data\spring-data-commons\3.5.2\spring-data-commons-3.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-orm\6.2.9\spring-orm-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-context\6.2.9\spring-context-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-tx\6.2.9\spring-tx-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-beans\6.2.9\spring-beans-6.2.9.jar;C:\Users\Test\.m2\repository\org\slf4j\slf4j-api\2.0.17\slf4j-api-2.0.17.jar;C:\Users\Test\.m2\repository\org\springframework\spring-aspects\6.2.9\spring-aspects-6.2.9.jar;C:\Users\Test\.m2\repository\org\aspectj\aspectjweaver\1.9.24\aspectjweaver-1.9.24.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-security\3.5.4\spring-boot-starter-security-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\spring-aop\6.2.9\spring-aop-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-config\6.5.2\spring-security-config-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-web\6.5.2\spring-security-web-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-expression\6.2.9\spring-expression-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-web\3.5.4\spring-boot-starter-web-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-json\3.5.4\spring-boot-starter-json-3.5.4.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jdk8\2.19.2\jackson-datatype-jdk8-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jsr310\2.19.2\jackson-datatype-jsr310-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\module\jackson-module-parameter-names\2.19.2\jackson-module-parameter-names-2.19.2.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat\3.5.4\spring-boot-starter-tomcat-3.5.4.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-core\10.1.43\tomcat-embed-core-10.1.43.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-el\10.1.43\tomcat-embed-el-10.1.43.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-websocket\10.1.43\tomcat-embed-websocket-10.1.43.jar;C:\Users\Test\.m2\repository\org\springframework\spring-web\6.2.9\spring-web-6.2.9.jar;C:\Users\Test\.m2\repository\io\micrometer\micrometer-observation\1.15.2\micrometer-observation-1.15.2.jar;C:\Users\Test\.m2\repository\io\micrometer\micrometer-commons\1.15.2\micrometer-commons-1.15.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-webmvc\6.2.9\spring-webmvc-6.2.9.jar;C:\Users\Test\.m2\repository\com\mysql\mysql-connector-j\9.3.0\mysql-connector-j-9.3.0.jar;C:\Users\Test\.m2\repository\org\projectlombok\lombok\1.18.38\lombok-1.18.38.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-api\0.11.5\jjwt-api-0.11.5.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-impl\0.11.5\jjwt-impl-0.11.5.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-jackson\0.11.5\jjwt-jackson-0.11.5.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.19.2\jackson-databind-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-annotations\2.19.2\jackson-annotations-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.19.2\jackson-core-2.19.2.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-test\3.5.4\spring-boot-starter-test-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-test\3.5.4\spring-boot-test-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-test-autoconfigure\3.5.4\spring-boot-test-autoconfigure-3.5.4.jar;C:\Users\Test\.m2\repository\com\jayway\jsonpath\json-path\2.9.0\json-path-2.9.0.jar;C:\Users\Test\.m2\repository\jakarta\xml\bind\jakarta.xml.bind-api\4.0.2\jakarta.xml.bind-api-4.0.2.jar;C:\Users\Test\.m2\repository\jakarta\activation\jakarta.activation-api\2.1.3\jakarta.activation-api-2.1.3.jar;C:\Users\Test\.m2\repository\net\minidev\json-smart\2.5.2\json-smart-2.5.2.jar;C:\Users\Test\.m2\repository\net\minidev\accessors-smart\2.5.2\accessors-smart-2.5.2.jar;C:\Users\Test\.m2\repository\org\ow2\asm\asm\9.7.1\asm-9.7.1.jar;C:\Users\Test\.m2\repository\org\assertj\assertj-core\3.27.3\assertj-core-3.27.3.jar;C:\Users\Test\.m2\repository\org\awaitility\awaitility\4.2.2\awaitility-4.2.2.jar;C:\Users\Test\.m2\repository\org\hamcrest\hamcrest\3.0\hamcrest-3.0.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter\5.12.2\junit-jupiter-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.12.2\junit-jupiter-api-5.12.2.jar;C:\Users\Test\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\Test\.m2\repository\org\junit\platform\junit-platform-commons\1.12.2\junit-platform-commons-1.12.2.jar;C:\Users\Test\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.12.2\junit-jupiter-params-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.12.2\junit-jupiter-engine-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\platform\junit-platform-engine\1.12.2\junit-platform-engine-1.12.2.jar;C:\Users\Test\.m2\repository\org\mockito\mockito-core\5.17.0\mockito-core-5.17.0.jar;C:\Users\Test\.m2\repository\net\bytebuddy\byte-buddy-agent\1.17.6\byte-buddy-agent-1.17.6.jar;C:\Users\Test\.m2\repository\org\objenesis\objenesis\3.3\objenesis-3.3.jar;C:\Users\Test\.m2\repository\org\mockito\mockito-junit-jupiter\5.17.0\mockito-junit-jupiter-5.17.0.jar;C:\Users\Test\.m2\repository\org\skyscreamer\jsonassert\1.5.3\jsonassert-1.5.3.jar;C:\Users\Test\.m2\repository\com\vaadin\external\google\android-json\0.0.20131108.vaadin1\android-json-0.0.20131108.vaadin1.jar;C:\Users\Test\.m2\repository\org\springframework\spring-core\6.2.9\spring-core-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-jcl\6.2.9\spring-jcl-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-test\6.2.9\spring-test-6.2.9.jar;C:\Users\Test\.m2\repository\org\xmlunit\xmlunit-core\2.10.3\xmlunit-core-2.10.3.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-test\6.5.2\spring-security-test-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-core\6.5.2\spring-security-core-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-crypto\6.5.2\spring-security-crypto-6.5.2.jar;"/>
+    <property name="surefire.test.class.path" value="C:\Projects\SpringBoot1\demo\target\test-classes;C:\Projects\SpringBoot1\demo\target\classes;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-data-jpa\3.5.4\spring-boot-starter-data-jpa-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter\3.5.4\spring-boot-starter-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-logging\3.5.4\spring-boot-starter-logging-3.5.4.jar;C:\Users\Test\.m2\repository\ch\qos\logback\logback-classic\1.5.18\logback-classic-1.5.18.jar;C:\Users\Test\.m2\repository\ch\qos\logback\logback-core\1.5.18\logback-core-1.5.18.jar;C:\Users\Test\.m2\repository\org\apache\logging\log4j\log4j-to-slf4j\2.24.3\log4j-to-slf4j-2.24.3.jar;C:\Users\Test\.m2\repository\org\apache\logging\log4j\log4j-api\2.24.3\log4j-api-2.24.3.jar;C:\Users\Test\.m2\repository\org\slf4j\jul-to-slf4j\2.0.17\jul-to-slf4j-2.0.17.jar;C:\Users\Test\.m2\repository\jakarta\annotation\jakarta.annotation-api\2.1.1\jakarta.annotation-api-2.1.1.jar;C:\Users\Test\.m2\repository\org\yaml\snakeyaml\2.4\snakeyaml-2.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-jdbc\3.5.4\spring-boot-starter-jdbc-3.5.4.jar;C:\Users\Test\.m2\repository\com\zaxxer\HikariCP\6.3.1\HikariCP-6.3.1.jar;C:\Users\Test\.m2\repository\org\springframework\spring-jdbc\6.2.9\spring-jdbc-6.2.9.jar;C:\Users\Test\.m2\repository\org\hibernate\orm\hibernate-core\6.6.22.Final\hibernate-core-6.6.22.Final.jar;C:\Users\Test\.m2\repository\jakarta\persistence\jakarta.persistence-api\3.1.0\jakarta.persistence-api-3.1.0.jar;C:\Users\Test\.m2\repository\jakarta\transaction\jakarta.transaction-api\2.0.1\jakarta.transaction-api-2.0.1.jar;C:\Users\Test\.m2\repository\org\jboss\logging\jboss-logging\3.6.1.Final\jboss-logging-3.6.1.Final.jar;C:\Users\Test\.m2\repository\org\hibernate\common\hibernate-commons-annotations\7.0.3.Final\hibernate-commons-annotations-7.0.3.Final.jar;C:\Users\Test\.m2\repository\io\smallrye\jandex\3.2.0\jandex-3.2.0.jar;C:\Users\Test\.m2\repository\com\fasterxml\classmate\1.7.0\classmate-1.7.0.jar;C:\Users\Test\.m2\repository\net\bytebuddy\byte-buddy\1.17.6\byte-buddy-1.17.6.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\jaxb-runtime\4.0.5\jaxb-runtime-4.0.5.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\jaxb-core\4.0.5\jaxb-core-4.0.5.jar;C:\Users\Test\.m2\repository\org\eclipse\angus\angus-activation\2.0.2\angus-activation-2.0.2.jar;C:\Users\Test\.m2\repository\org\glassfish\jaxb\txw2\4.0.5\txw2-4.0.5.jar;C:\Users\Test\.m2\repository\com\sun\istack\istack-commons-runtime\4.1.2\istack-commons-runtime-4.1.2.jar;C:\Users\Test\.m2\repository\jakarta\inject\jakarta.inject-api\2.0.1\jakarta.inject-api-2.0.1.jar;C:\Users\Test\.m2\repository\org\antlr\antlr4-runtime\4.13.0\antlr4-runtime-4.13.0.jar;C:\Users\Test\.m2\repository\org\springframework\data\spring-data-jpa\3.5.2\spring-data-jpa-3.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\data\spring-data-commons\3.5.2\spring-data-commons-3.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-orm\6.2.9\spring-orm-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-context\6.2.9\spring-context-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-tx\6.2.9\spring-tx-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-beans\6.2.9\spring-beans-6.2.9.jar;C:\Users\Test\.m2\repository\org\slf4j\slf4j-api\2.0.17\slf4j-api-2.0.17.jar;C:\Users\Test\.m2\repository\org\springframework\spring-aspects\6.2.9\spring-aspects-6.2.9.jar;C:\Users\Test\.m2\repository\org\aspectj\aspectjweaver\1.9.24\aspectjweaver-1.9.24.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-security\3.5.4\spring-boot-starter-security-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\spring-aop\6.2.9\spring-aop-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-config\6.5.2\spring-security-config-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-web\6.5.2\spring-security-web-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-expression\6.2.9\spring-expression-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-web\3.5.4\spring-boot-starter-web-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-json\3.5.4\spring-boot-starter-json-3.5.4.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jdk8\2.19.2\jackson-datatype-jdk8-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jsr310\2.19.2\jackson-datatype-jsr310-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\module\jackson-module-parameter-names\2.19.2\jackson-module-parameter-names-2.19.2.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat\3.5.4\spring-boot-starter-tomcat-3.5.4.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-core\10.1.43\tomcat-embed-core-10.1.43.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-websocket\10.1.43\tomcat-embed-websocket-10.1.43.jar;C:\Users\Test\.m2\repository\org\springframework\spring-web\6.2.9\spring-web-6.2.9.jar;C:\Users\Test\.m2\repository\io\micrometer\micrometer-observation\1.15.2\micrometer-observation-1.15.2.jar;C:\Users\Test\.m2\repository\io\micrometer\micrometer-commons\1.15.2\micrometer-commons-1.15.2.jar;C:\Users\Test\.m2\repository\org\springframework\spring-webmvc\6.2.9\spring-webmvc-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-devtools\3.5.4\spring-boot-devtools-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot\3.5.4\spring-boot-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-autoconfigure\3.5.4\spring-boot-autoconfigure-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-validation\3.5.4\spring-boot-starter-validation-3.5.4.jar;C:\Users\Test\.m2\repository\org\apache\tomcat\embed\tomcat-embed-el\10.1.43\tomcat-embed-el-10.1.43.jar;C:\Users\Test\.m2\repository\org\hibernate\validator\hibernate-validator\8.0.2.Final\hibernate-validator-8.0.2.Final.jar;C:\Users\Test\.m2\repository\jakarta\validation\jakarta.validation-api\3.0.2\jakarta.validation-api-3.0.2.jar;C:\Users\Test\.m2\repository\org\springdoc\springdoc-openapi-starter-webmvc-ui\2.5.0\springdoc-openapi-starter-webmvc-ui-2.5.0.jar;C:\Users\Test\.m2\repository\org\springdoc\springdoc-openapi-starter-webmvc-api\2.5.0\springdoc-openapi-starter-webmvc-api-2.5.0.jar;C:\Users\Test\.m2\repository\org\springdoc\springdoc-openapi-starter-common\2.5.0\springdoc-openapi-starter-common-2.5.0.jar;C:\Users\Test\.m2\repository\io\swagger\core\v3\swagger-core-jakarta\2.2.21\swagger-core-jakarta-2.2.21.jar;C:\Users\Test\.m2\repository\org\apache\commons\commons-lang3\3.17.0\commons-lang3-3.17.0.jar;C:\Users\Test\.m2\repository\io\swagger\core\v3\swagger-annotations-jakarta\2.2.21\swagger-annotations-jakarta-2.2.21.jar;C:\Users\Test\.m2\repository\io\swagger\core\v3\swagger-models-jakarta\2.2.21\swagger-models-jakarta-2.2.21.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\dataformat\jackson-dataformat-yaml\2.19.2\jackson-dataformat-yaml-2.19.2.jar;C:\Users\Test\.m2\repository\org\webjars\swagger-ui\5.13.0\swagger-ui-5.13.0.jar;C:\Users\Test\.m2\repository\com\mysql\mysql-connector-j\9.3.0\mysql-connector-j-9.3.0.jar;C:\Users\Test\.m2\repository\org\projectlombok\lombok\1.18.38\lombok-1.18.38.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-api\0.11.5\jjwt-api-0.11.5.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-impl\0.11.5\jjwt-impl-0.11.5.jar;C:\Users\Test\.m2\repository\io\jsonwebtoken\jjwt-jackson\0.11.5\jjwt-jackson-0.11.5.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.19.2\jackson-databind-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-annotations\2.19.2\jackson-annotations-2.19.2.jar;C:\Users\Test\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.19.2\jackson-core-2.19.2.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-starter-test\3.5.4\spring-boot-starter-test-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-test\3.5.4\spring-boot-test-3.5.4.jar;C:\Users\Test\.m2\repository\org\springframework\boot\spring-boot-test-autoconfigure\3.5.4\spring-boot-test-autoconfigure-3.5.4.jar;C:\Users\Test\.m2\repository\com\jayway\jsonpath\json-path\2.9.0\json-path-2.9.0.jar;C:\Users\Test\.m2\repository\jakarta\xml\bind\jakarta.xml.bind-api\4.0.2\jakarta.xml.bind-api-4.0.2.jar;C:\Users\Test\.m2\repository\jakarta\activation\jakarta.activation-api\2.1.3\jakarta.activation-api-2.1.3.jar;C:\Users\Test\.m2\repository\net\minidev\json-smart\2.5.2\json-smart-2.5.2.jar;C:\Users\Test\.m2\repository\net\minidev\accessors-smart\2.5.2\accessors-smart-2.5.2.jar;C:\Users\Test\.m2\repository\org\ow2\asm\asm\9.7.1\asm-9.7.1.jar;C:\Users\Test\.m2\repository\org\assertj\assertj-core\3.27.3\assertj-core-3.27.3.jar;C:\Users\Test\.m2\repository\org\awaitility\awaitility\4.2.2\awaitility-4.2.2.jar;C:\Users\Test\.m2\repository\org\hamcrest\hamcrest\3.0\hamcrest-3.0.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter\5.12.2\junit-jupiter-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.12.2\junit-jupiter-api-5.12.2.jar;C:\Users\Test\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\Test\.m2\repository\org\junit\platform\junit-platform-commons\1.12.2\junit-platform-commons-1.12.2.jar;C:\Users\Test\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.12.2\junit-jupiter-params-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.12.2\junit-jupiter-engine-5.12.2.jar;C:\Users\Test\.m2\repository\org\junit\platform\junit-platform-engine\1.12.2\junit-platform-engine-1.12.2.jar;C:\Users\Test\.m2\repository\org\mockito\mockito-core\5.17.0\mockito-core-5.17.0.jar;C:\Users\Test\.m2\repository\net\bytebuddy\byte-buddy-agent\1.17.6\byte-buddy-agent-1.17.6.jar;C:\Users\Test\.m2\repository\org\objenesis\objenesis\3.3\objenesis-3.3.jar;C:\Users\Test\.m2\repository\org\mockito\mockito-junit-jupiter\5.17.0\mockito-junit-jupiter-5.17.0.jar;C:\Users\Test\.m2\repository\org\skyscreamer\jsonassert\1.5.3\jsonassert-1.5.3.jar;C:\Users\Test\.m2\repository\com\vaadin\external\google\android-json\0.0.20131108.vaadin1\android-json-0.0.20131108.vaadin1.jar;C:\Users\Test\.m2\repository\org\springframework\spring-core\6.2.9\spring-core-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-jcl\6.2.9\spring-jcl-6.2.9.jar;C:\Users\Test\.m2\repository\org\springframework\spring-test\6.2.9\spring-test-6.2.9.jar;C:\Users\Test\.m2\repository\org\xmlunit\xmlunit-core\2.10.3\xmlunit-core-2.10.3.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-test\6.5.2\spring-security-test-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-core\6.5.2\spring-security-core-6.5.2.jar;C:\Users\Test\.m2\repository\org\springframework\security\spring-security-crypto\6.5.2\spring-security-crypto-6.5.2.jar;"/>
     <property name="sun.cpu.endian" value="little"/>
     <property name="user.home" value="C:\Users\Test"/>
     <property name="user.language" value="en"/>
@@ -1489,7 +1620,7 @@ spring:
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="FILE_LOG_CHARSET" value="UTF-8"/>
     <property name="java.awt.headless" value="true"/>
-    <property name="surefire.real.class.path" value="C:\Users\Test\AppData\Local\Temp\surefire15143580806485010631\surefirebooter-20250808180827902_3.jar"/>
+    <property name="surefire.real.class.path" value="C:\Users\Test\AppData\Local\Temp\surefire7612392210119227222\surefirebooter-20250811210507321_3.jar"/>
     <property name="user.script" value=""/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="21.0.5+11-LTS"/>
@@ -1509,7 +1640,7 @@ spring:
     <property name="user.dir" value="C:\Projects\SpringBoot1\demo"/>
     <property name="os.arch" value="amd64"/>
     <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
-    <property name="PID" value="12400"/>
+    <property name="PID" value="8296"/>
     <property name="sun.os.patch.level" value=""/>
     <property name="CONSOLE_LOG_CHARSET" value="UTF-8"/>
     <property name="native.encoding" value="Cp1252"/>
@@ -1521,9 +1652,10 @@ spring:
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="testExtractUsername" classname="com.example.demo.DemoApplicationTests" time="0.976">
-    <system-out><![CDATA[18:08:29.880 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.example.demo.DemoApplicationTests]: DemoApplicationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-18:08:30.116 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.example.demo.DemoApplication for test class com.example.demo.DemoApplicationTests
+  <testcase name="testLogin" classname="com.example.demo.DemoApplicationTests" time="1.399">
+    <system-out><![CDATA[21:05:09.462 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.example.demo.DemoApplicationTests]: DemoApplicationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+21:05:09.712 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.example.demo.DemoApplication for test class com.example.demo.DemoApplicationTests
+21:05:10.275 [main] INFO org.springframework.boot.devtools.restart.RestartApplicationListener -- Restart disabled due to context in which it is running
 
   .   ____          _            __ _ _
  /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
@@ -1534,19 +1666,19 @@ spring:
 
  :: Spring Boot ::                (v3.5.4)
 
-2025-08-08T18:08:31.190+08:00  INFO 12400 --- [           main] com.example.demo.DemoApplicationTests    : Starting DemoApplicationTests using Java 21.0.5 with PID 12400 (started by Test in C:\Projects\SpringBoot1\demo)
-2025-08-08T18:08:31.192+08:00  INFO 12400 --- [           main] com.example.demo.DemoApplicationTests    : No active profile set, falling back to 1 default profile: "default"
-2025-08-08T18:08:32.806+08:00  INFO 12400 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2025-08-08T18:08:32.918+08:00  INFO 12400 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 93 ms. Found 1 JPA repository interface.
-2025-08-08T18:08:34.090+08:00  INFO 12400 --- [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
-2025-08-08T18:08:34.206+08:00  INFO 12400 --- [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.22.Final
-2025-08-08T18:08:34.280+08:00  INFO 12400 --- [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
-2025-08-08T18:08:35.164+08:00  INFO 12400 --- [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2025-08-08T18:08:35.233+08:00  INFO 12400 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2025-08-08T18:08:35.610+08:00  INFO 12400 --- [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@3fef1e6b
-2025-08-08T18:08:35.614+08:00  INFO 12400 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
-2025-08-08T18:08:35.704+08:00  WARN 12400 --- [           main] org.hibernate.orm.deprecation            : HHH90000025: MySQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2025-08-08T18:08:35.755+08:00  INFO 12400 --- [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+2025-08-11T21:05:11.099+08:00  INFO 8296 --- [           main] com.example.demo.DemoApplicationTests    : Starting DemoApplicationTests using Java 21.0.5 with PID 8296 (started by Test in C:\Projects\SpringBoot1\demo)
+2025-08-11T21:05:11.102+08:00  INFO 8296 --- [           main] com.example.demo.DemoApplicationTests    : No active profile set, falling back to 1 default profile: "default"
+2025-08-11T21:05:13.432+08:00  INFO 8296 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2025-08-11T21:05:13.612+08:00  INFO 8296 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 154 ms. Found 4 JPA repository interfaces.
+2025-08-11T21:05:14.859+08:00  INFO 8296 --- [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2025-08-11T21:05:14.984+08:00  INFO 8296 --- [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.22.Final
+2025-08-11T21:05:15.066+08:00  INFO 8296 --- [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2025-08-11T21:05:15.737+08:00  INFO 8296 --- [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2025-08-11T21:05:15.814+08:00  INFO 8296 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2025-08-11T21:05:16.147+08:00  INFO 8296 --- [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@2b3b1124
+2025-08-11T21:05:16.150+08:00  INFO 8296 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2025-08-11T21:05:16.236+08:00  WARN 8296 --- [           main] org.hibernate.orm.deprecation            : HHH90000025: MySQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2025-08-11T21:05:16.279+08:00  INFO 8296 --- [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
 	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
 	Database driver: undefined/unknown
 	Database version: 8.0.42
@@ -1554,13 +1686,37 @@ spring:
 	Isolation level: undefined/unknown
 	Minimum pool size: undefined/unknown
 	Maximum pool size: undefined/unknown
-2025-08-08T18:08:37.150+08:00  INFO 12400 --- [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2025-08-08T18:08:37.232+08:00  INFO 12400 --- [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2025-08-08T18:08:37.834+08:00  INFO 12400 --- [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
-2025-08-08T18:08:39.004+08:00  INFO 12400 --- [           main] eAuthenticationProviderManagerConfigurer : Global AuthenticationManager configured with AuthenticationProvider bean with name authenticationProvider
-2025-08-08T18:08:39.005+08:00  WARN 12400 --- [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with an AuthenticationProvider bean. UserDetailsService beans will not be used by Spring Security for automatically configuring username/password login. Consider removing the AuthenticationProvider bean. Alternatively, consider using the UserDetailsService in a manually instantiated DaoAuthenticationProvider. If the current configuration is intentional, to turn off this warning, increase the logging level of 'org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer' to ERROR
-2025-08-08T18:08:39.090+08:00  WARN 12400 --- [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2025-08-08T18:08:40.332+08:00  INFO 12400 --- [           main] com.example.demo.DemoApplicationTests    : Started DemoApplicationTests in 9.805 seconds (process running for 12.134)
+2025-08-11T21:05:17.972+08:00  INFO 8296 --- [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2025-08-11T21:05:18.103+08:00  INFO 8296 --- [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2025-08-11T21:05:18.671+08:00  INFO 8296 --- [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2025-08-11T21:05:19.970+08:00  INFO 8296 --- [           main] eAuthenticationProviderManagerConfigurer : Global AuthenticationManager configured with AuthenticationProvider bean with name authenticationProvider
+2025-08-11T21:05:19.970+08:00  WARN 8296 --- [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with an AuthenticationProvider bean. UserDetailsService beans will not be used by Spring Security for automatically configuring username/password login. Consider removing the AuthenticationProvider bean. Alternatively, consider using the UserDetailsService in a manually instantiated DaoAuthenticationProvider. If the current configuration is intentional, to turn off this warning, increase the logging level of 'org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer' to ERROR
+2025-08-11T21:05:20.221+08:00  WARN 8296 --- [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-08-11T21:05:21.709+08:00  INFO 8296 --- [           main] com.example.demo.DemoApplicationTests    : Started DemoApplicationTests in 11.469 seconds (process running for 14.116)
+Hibernate: 
+    select
+        u1_0.id,
+        u1_0.email,
+        u1_0.firstname,
+        u1_0.lastname,
+        u1_0.password,
+        u1_0.role 
+    from
+        users u1_0 
+    where
+        u1_0.email=?
+Hibernate: 
+    select
+        u1_0.id,
+        u1_0.email,
+        u1_0.firstname,
+        u1_0.lastname,
+        u1_0.password,
+        u1_0.role 
+    from
+        users u1_0 
+    where
+        u1_0.email=?
 ]]></system-out>
     <system-err><![CDATA[Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build as described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
 WARNING: A Java agent has been loaded dynamically (C:\Users\Test\.m2\repository\net\bytebuddy\byte-buddy-agent\1.17.6\byte-buddy-agent-1.17.6.jar)
@@ -1569,5 +1725,248 @@ WARNING: If a serviceability tool is not in use, please run with -Djdk.instrumen
 WARNING: Dynamic loading of agents will be disallowed by default in a future release
 ]]></system-err>
   </testcase>
+  <testcase name="testApplyStudent" classname="com.example.demo.DemoApplicationTests" time="0.112">
+    <system-out><![CDATA[Hibernate: 
+    select
+        u1_0.id,
+        u1_0.email,
+        u1_0.firstname,
+        u1_0.lastname,
+        u1_0.password,
+        u1_0.role 
+    from
+        users u1_0 
+    where
+        u1_0.email=?
+Hibernate: 
+    select
+        u1_0.id,
+        u1_0.email,
+        u1_0.firstname,
+        u1_0.lastname,
+        u1_0.password,
+        u1_0.role 
+    from
+        users u1_0 
+    where
+        u1_0.email=?
+]]></system-out>
+  </testcase>
+  <testcase name="testExtractUsername" classname="com.example.demo.DemoApplicationTests" time="0.085"/>
+  <testcase name="testAddCourse" classname="com.example.demo.DemoApplicationTests" time="0.058">
+    <system-out><![CDATA[Hibernate: 
+    select
+        c1_0.id,
+        c1_0.description,
+        c1_0.title 
+    from
+        courses c1_0 
+    where
+        c1_0.title=?
+Hibernate: 
+    select
+        c1_0.id,
+        c1_0.description,
+        c1_0.title 
+    from
+        courses c1_0 
+    where
+        c1_0.title=?
+]]></system-out>
+  </testcase>
+  <testcase name="testEnrollStudent" classname="com.example.demo.DemoApplicationTests" time="0.825">
+    <error message="could not execute statement [Duplicate entry &apos;1-1&apos; for key &apos;enrollees.uc_student_course&apos;] [insert into enrollees (course_id,student_id) values (?,?)]; SQL [insert into enrollees (course_id,student_id) values (?,?)]; constraint [enrollees.uc_student_course]" type="org.springframework.dao.DataIntegrityViolationException"><![CDATA[org.springframework.dao.DataIntegrityViolationException: could not execute statement [Duplicate entry '1-1' for key 'enrollees.uc_student_course'] [insert into enrollees (course_id,student_id) values (?,?)]; SQL [insert into enrollees (course_id,student_id) values (?,?)]; constraint [enrollees.uc_student_course]
+	at org.springframework.orm.jpa.vendor.HibernateJpaDialect.convertHibernateAccessException(HibernateJpaDialect.java:294)
+	at org.springframework.orm.jpa.vendor.HibernateJpaDialect.convertHibernateAccessException(HibernateJpaDialect.java:256)
+	at org.springframework.orm.jpa.vendor.HibernateJpaDialect.translateExceptionIfPossible(HibernateJpaDialect.java:241)
+	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.translateExceptionIfPossible(AbstractEntityManagerFactoryBean.java:560)
+	at org.springframework.dao.support.ChainedPersistenceExceptionTranslator.translateExceptionIfPossible(ChainedPersistenceExceptionTranslator.java:61)
+	at org.springframework.dao.support.DataAccessUtils.translateIfNecessary(DataAccessUtils.java:343)
+	at org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:160)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+	at org.springframework.data.jpa.repository.support.CrudMethodMetadataPostProcessor$CrudMethodMetadataPopulatingMethodInterceptor.invoke(CrudMethodMetadataPostProcessor.java:165)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+	at org.springframework.aop.framework.JdkDynamicAopProxy.invoke(JdkDynamicAopProxy.java:223)
+	at jdk.proxy2/jdk.proxy2.$Proxy154.save(Unknown Source)
+	at com.example.demo.Service.ApplicationService.enrollStudents(ApplicationService.java:141)
+	at com.example.demo.DemoApplicationTests.testEnrollStudent(DemoApplicationTests.java:148)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+Caused by: org.hibernate.exception.ConstraintViolationException: could not execute statement [Duplicate entry '1-1' for key 'enrollees.uc_student_course'] [insert into enrollees (course_id,student_id) values (?,?)]
+	at org.hibernate.dialect.MySQLDialect.lambda$buildSQLExceptionConversionDelegate$3(MySQLDialect.java:1245)
+	at org.hibernate.exception.internal.StandardSQLExceptionConverter.convert(StandardSQLExceptionConverter.java:58)
+	at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:108)
+	at org.hibernate.engine.jdbc.internal.ResultSetReturnImpl.executeUpdate(ResultSetReturnImpl.java:197)
+	at org.hibernate.id.insert.GetGeneratedKeysDelegate.performMutation(GetGeneratedKeysDelegate.java:116)
+	at org.hibernate.engine.jdbc.mutation.internal.MutationExecutorSingleNonBatched.performNonBatchedOperations(MutationExecutorSingleNonBatched.java:47)
+	at org.hibernate.engine.jdbc.mutation.internal.AbstractMutationExecutor.execute(AbstractMutationExecutor.java:55)
+	at org.hibernate.persister.entity.mutation.InsertCoordinatorStandard.doStaticInserts(InsertCoordinatorStandard.java:194)
+	at org.hibernate.persister.entity.mutation.InsertCoordinatorStandard.coordinateInsert(InsertCoordinatorStandard.java:132)
+	at org.hibernate.persister.entity.mutation.InsertCoordinatorStandard.insert(InsertCoordinatorStandard.java:95)
+	at org.hibernate.action.internal.EntityIdentityInsertAction.execute(EntityIdentityInsertAction.java:85)
+	at org.hibernate.engine.spi.ActionQueue.execute(ActionQueue.java:682)
+	at org.hibernate.engine.spi.ActionQueue.addResolvedEntityInsertAction(ActionQueue.java:293)
+	at org.hibernate.engine.spi.ActionQueue.addInsertAction(ActionQueue.java:274)
+	at org.hibernate.engine.spi.ActionQueue.addAction(ActionQueue.java:324)
+	at org.hibernate.event.internal.AbstractSaveEventListener.addInsertAction(AbstractSaveEventListener.java:394)
+	at org.hibernate.event.internal.AbstractSaveEventListener.performSaveOrReplicate(AbstractSaveEventListener.java:308)
+	at org.hibernate.event.internal.AbstractSaveEventListener.performSave(AbstractSaveEventListener.java:224)
+	at org.hibernate.event.internal.AbstractSaveEventListener.saveWithGeneratedId(AbstractSaveEventListener.java:136)
+	at org.hibernate.event.internal.DefaultPersistEventListener.entityIsTransient(DefaultPersistEventListener.java:177)
+	at org.hibernate.event.internal.DefaultPersistEventListener.persist(DefaultPersistEventListener.java:95)
+	at org.hibernate.event.internal.DefaultPersistEventListener.onPersist(DefaultPersistEventListener.java:79)
+	at org.hibernate.event.internal.DefaultPersistEventListener.onPersist(DefaultPersistEventListener.java:55)
+	at org.hibernate.event.service.internal.EventListenerGroupImpl.fireEventOnEachListener(EventListenerGroupImpl.java:127)
+	at org.hibernate.internal.SessionImpl.firePersist(SessionImpl.java:761)
+	at org.hibernate.internal.SessionImpl.persist(SessionImpl.java:745)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.orm.jpa.SharedEntityManagerCreator$SharedEntityManagerInvocationHandler.invoke(SharedEntityManagerCreator.java:320)
+	at jdk.proxy2/jdk.proxy2.$Proxy142.persist(Unknown Source)
+	at org.springframework.data.jpa.repository.support.SimpleJpaRepository.save(SimpleJpaRepository.java:654)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:360)
+	at org.springframework.data.repository.core.support.RepositoryMethodInvoker$RepositoryFragmentMethodInvoker.lambda$new$0(RepositoryMethodInvoker.java:277)
+	at org.springframework.data.repository.core.support.RepositoryMethodInvoker.doInvoke(RepositoryMethodInvoker.java:170)
+	at org.springframework.data.repository.core.support.RepositoryMethodInvoker.invoke(RepositoryMethodInvoker.java:158)
+	at org.springframework.data.repository.core.support.RepositoryComposition$RepositoryFragments.invoke(RepositoryComposition.java:515)
+	at org.springframework.data.repository.core.support.RepositoryComposition.invoke(RepositoryComposition.java:284)
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport$ImplementationMethodExecutionInterceptor.invoke(RepositoryFactorySupport.java:734)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+	at org.springframework.data.repository.core.support.QueryExecutorMethodInterceptor.doInvoke(QueryExecutorMethodInterceptor.java:174)
+	at org.springframework.data.repository.core.support.QueryExecutorMethodInterceptor.invoke(QueryExecutorMethodInterceptor.java:149)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+	at org.springframework.data.projection.DefaultMethodInvokingMethodInterceptor.invoke(DefaultMethodInvokingMethodInterceptor.java:69)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+	at org.springframework.transaction.interceptor.TransactionAspectSupport.invokeWithinTransaction(TransactionAspectSupport.java:380)
+	at org.springframework.transaction.interceptor.TransactionInterceptor.invoke(TransactionInterceptor.java:119)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+	at org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:138)
+	... 10 more
+Caused by: java.sql.SQLIntegrityConstraintViolationException: Duplicate entry '1-1' for key 'enrollees.uc_student_course'
+	at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:109)
+	at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+	at com.mysql.cj.jdbc.ClientPreparedStatement.executeInternal(ClientPreparedStatement.java:990)
+	at com.mysql.cj.jdbc.ClientPreparedStatement.executeUpdateInternal(ClientPreparedStatement.java:1168)
+	at com.mysql.cj.jdbc.ClientPreparedStatement.executeUpdateInternal(ClientPreparedStatement.java:1103)
+	at com.mysql.cj.jdbc.ClientPreparedStatement.executeLargeUpdate(ClientPreparedStatement.java:1450)
+	at com.mysql.cj.jdbc.ClientPreparedStatement.executeUpdate(ClientPreparedStatement.java:1086)
+	at com.zaxxer.hikari.pool.ProxyPreparedStatement.executeUpdate(ProxyPreparedStatement.java:61)
+	at com.zaxxer.hikari.pool.HikariProxyPreparedStatement.executeUpdate(HikariProxyPreparedStatement.java)
+	at org.hibernate.engine.jdbc.internal.ResultSetReturnImpl.executeUpdate(ResultSetReturnImpl.java:194)
+	... 56 more
+]]></error>
+    <system-out><![CDATA[Hibernate: 
+    select
+        s1_0.id,
+        s1_0.email,
+        s1_0.gender,
+        s1_0.password 
+    from
+        students s1_0 
+    where
+        s1_0.id=?
+Hibernate: 
+    select
+        c1_0.id,
+        c1_0.description,
+        c1_0.title 
+    from
+        courses c1_0 
+    where
+        c1_0.id=?
+Hibernate: 
+    select
+        e1_0.id,
+        e1_0.course_id,
+        e1_0.student_id 
+    from
+        enrollees e1_0
+Hibernate: 
+    select
+        c1_0.id,
+        c1_0.description,
+        c1_0.title 
+    from
+        courses c1_0 
+    where
+        c1_0.id=?
+Hibernate: 
+    select
+        s1_0.id,
+        s1_0.email,
+        s1_0.gender,
+        s1_0.password 
+    from
+        students s1_0 
+    where
+        s1_0.id=?
+Hibernate: 
+    select
+        c1_0.id,
+        c1_0.description,
+        c1_0.title 
+    from
+        courses c1_0 
+    where
+        c1_0.id=?
+Hibernate: 
+    select
+        c1_0.id,
+        c1_0.description,
+        c1_0.title 
+    from
+        courses c1_0 
+    where
+        c1_0.id=?
+Hibernate: 
+    select
+        s1_0.id,
+        s1_0.email,
+        s1_0.gender,
+        s1_0.password 
+    from
+        students s1_0 
+    where
+        s1_0.id=?
+Hibernate: 
+    select
+        s1_0.id,
+        s1_0.email,
+        s1_0.gender,
+        s1_0.password 
+    from
+        students s1_0 
+    where
+        s1_0.id=?
+Hibernate: 
+    insert 
+    into
+        enrollees
+        (course_id, student_id) 
+    values
+        (?, ?)
+2025-08-11T21:05:24.201+08:00  WARN 8296 --- [           main] o.h.engine.jdbc.spi.SqlExceptionHelper   : SQL Error: 1062, SQLState: 23000
+2025-08-11T21:05:24.201+08:00 ERROR 8296 --- [           main] o.h.engine.jdbc.spi.SqlExceptionHelper   : Duplicate entry '1-1' for key 'enrollees.uc_student_course'
+]]></system-out>
+  </testcase>
+  <testcase name="testSignUp" classname="com.example.demo.DemoApplicationTests" time="0.111">
+    <system-out><![CDATA[Hibernate: 
+    select
+        u1_0.id,
+        u1_0.email,
+        u1_0.firstname,
+        u1_0.lastname,
+        u1_0.password,
+        u1_0.role 
+    from
+        users u1_0 
+    where
+        u1_0.email=?
+]]></system-out>
+  </testcase>
 </testsuite> 
+---------------------------------------- 
 .

@@ -20,6 +20,13 @@ public class SecurityConfiguration {
 
 	private final AuthenticationProvider auth;
 	private final JwtAuthenticationFilter filter;
+	private static final String[] SWAGGER_WHITELIST = {
+		    "/v3/api-docs/**",
+		    "/swagger-ui/**",
+		    "/swagger-ui.html",
+		    "/swagger-resources/**",
+		    "/webjars/**"
+		};
 	
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -27,6 +34,8 @@ public class SecurityConfiguration {
 			.csrf()
 			.disable()
 			.authorizeHttpRequests()
+			.requestMatchers(SWAGGER_WHITELIST)
+			.permitAll()
 			.requestMatchers("/api/auth/**")
 			.permitAll()
 			.requestMatchers("/api/admin/**").hasRole("ADMIN")
@@ -39,7 +48,7 @@ public class SecurityConfiguration {
 			.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 			.and()
 			.authenticationProvider(auth)
-			.addFilterAfter(filter, UsernamePasswordAuthenticationFilter.class);
+			.addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class);
 			
 		return http.build();
 	}

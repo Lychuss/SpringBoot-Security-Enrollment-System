@@ -2,7 +2,6 @@ package com.example.demo;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -144,8 +143,8 @@ class DemoApplicationTests {
     }
     
     @Test
-    void testEnrollStudent() {
-    	boolean enroll = appService.enrollStudents(1L, 1L);
-    	assertTrue(enroll);
+    void testDeleteCourse() {
+    	boolean x = appService.deleteCourse(1L);
+    	assertTrue(x);
     }
 }

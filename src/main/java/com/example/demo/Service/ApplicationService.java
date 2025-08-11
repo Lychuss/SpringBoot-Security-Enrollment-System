@@ -19,6 +19,7 @@ import com.example.demo.Model.LoginRequest;
 import com.example.demo.Model.RegisterRequest;
 import com.example.demo.Model.Role;
 import com.example.demo.Model.Student;
+import com.example.demo.Model.StudentDTO;
 import com.example.demo.Model.User;
 import com.example.demo.Repository.CourseRepository;
 import com.example.demo.Repository.EnrollmentRepository;
@@ -75,7 +76,6 @@ public class ApplicationService {
 			return "Email is already sign up!";
 		}
 	}
-	
 	
 	public String login(LoginRequest request) {
 	  try {
@@ -140,5 +140,30 @@ public class ApplicationService {
 		}
 		enrollmentRepository.save(enrollees);
 		return true;
+	}
+	
+	public List<StudentDTO> getStudents(Long course_id) {
+		List<Student> students = enrollmentRepository.findUserById(course_id);
+		List<StudentDTO> studentsDTO = new ArrayList<>();
+		for(Student i : students) {
+			StudentDTO student = new StudentDTO(i.getEmail(), i.getGender());
+			studentsDTO.add(student);
+		}
+		return studentsDTO;
+	}
+	
+	public List<Course> getCourses(Long student_id) {
+		List<Course> courses = enrollmentRepository.findCourseById(student_id);
+		return courses;
+	}
+	
+	public boolean deleteCourse(Long course_id) {
+		Optional<Course> course = courseRepository.findCourseById(course_id);
+		if(course.isPresent()) {
+			enrollmentRepository.deleteCourseById(course_id.intValue());
+			courseRepository.deleteById(course_id);
+			return true;
+		}
+		return false;
 	}
 }

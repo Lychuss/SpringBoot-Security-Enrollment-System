@@ -11,11 +11,14 @@ import com.example.demo.Model.LoginRequest;
 import com.example.demo.Model.RegisterRequest;
 import com.example.demo.Service.ApplicationService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping(path= "/api/auth/home")
+@Tag(name= "Home API", description= "This is the face of the website, everyone has access")
 public class HomeController {
 
 	private final ApplicationService service;
@@ -26,16 +29,19 @@ public class HomeController {
 	}
 	
 	@PostMapping("/user/signup")
+	@Operation(summary= "If you want to sign up as user to be converted into student")
 	public ResponseEntity<String> signUpUser(@RequestBody  RegisterRequest request) {
 		return ResponseEntity.ok(service.registerUser(request));
 	}
 	
 	@PostMapping("/admin/signup")
+	@Operation(summary= "This is if you are a teacher of the school")
 	public ResponseEntity<String> signUpAdmin(@RequestBody  RegisterRequest request) {
 		return ResponseEntity.ok(service.registerAdmin(request));
 	}
 	
 	@PostMapping("/login")
+	@Operation(summary= "Whether you are user or admin you must login here")
 	public ResponseEntity<String> login(@RequestBody LoginRequest request){
 		return ResponseEntity.ok(service.login(request));
 	}

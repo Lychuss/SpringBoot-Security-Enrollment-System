@@ -1,5 +1,7 @@
 package com.example.demo.Model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -30,10 +32,12 @@ public class Enrollment {
 	
 	@ManyToOne
 	@JoinColumn(name= "student_id")
+	@JsonIgnore
 	private Student student;
 	
 	@ManyToOne
 	@JoinColumn(name= "course_id")
+	@JsonIgnore
 	private Course course;
 	
 	public Enrollment(Student student, Course course) {

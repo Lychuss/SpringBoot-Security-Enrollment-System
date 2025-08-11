@@ -36,11 +36,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			@NonNull HttpServletResponse response, 
 			@NonNull FilterChain filterChain)
 			throws ServletException, IOException {
+		
+	    String path = request.getServletPath();
+	    if (path.startsWith("/swagger-ui") ||
+	        path.startsWith("/v3/api-docs") ||
+	        path.startsWith("/swagger-resources") ||
+	        path.startsWith("/webjars")) {
+	        filterChain.doFilter(request, response);
+	        return;
+	    }
+	    
 		String authHeader = request.getHeader("Authorization");
 		String jwt;
 		String userEmail;
 		
-		if(authHeader == null || !authHeader.startsWith("Bearer")) {
+		if(authHeader == null || !authHeader.startsWith("Bearer ")) {
 			filterChain.doFilter(request, response);
 			return;
 		}
@@ -62,8 +72,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 				auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 				SecurityContextHolder.getContext().setAuthentication(auth);
 			}
-			filterChain.doFilter(request, response);
 		}
+		filterChain.doFilter(request, response);
 	}
-
 }
