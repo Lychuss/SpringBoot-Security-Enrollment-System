@@ -51,7 +51,7 @@ src/main/java/com/example/demo
 git clone https://github.com/yourusername/student-enrollment-system.git
 cd student-enrollment-system
 ```
-applicationproperties.yml
+application.yml
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/enrollmentdb
